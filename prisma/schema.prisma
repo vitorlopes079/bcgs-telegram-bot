@@ -1,0 +1,453 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum ContentStatus {
+  draft
+  published
+}
+
+enum ReviewStatus {
+  pending
+  published
+  rejected
+  unpublished
+}
+
+enum MarketAvailability {
+  available
+  restricted
+}
+
+enum UserRole {
+  user
+  admin
+}
+
+enum ComplaintStatus {
+  open
+  in_review
+  resolved
+  rejected
+}
+
+enum ComplaintSource {
+  web
+  telegram
+}
+
+enum ReportType {
+  complaint
+  scam_report
+}
+
+model Casino {
+  id              String                @id @default(cuid())
+  slug            String                @unique
+  logoUrl         String?
+  establishedYear Int?
+  minDeposit      Float?
+  payoutSpeedId   String?
+  payoutSpeed     PayoutSpeedOption?    @relation(fields: [payoutSpeedId], references: [id], onDelete: SetNull)
+  overallRating   Float?
+  ratingBonuses   Float?
+  ratingGames     Float?
+  ratingSupport   Float?
+  ratingPayout    Float?
+  ratingTrust     Float?
+  affiliateLink   String?
+  status          ContentStatus         @default(draft)
+  translations    CasinoTranslation[]
+  bonuses         Bonus[]
+  categories      CasinoCategory[]
+  licenses        CasinoLicense[]
+  paymentMethods  CasinoPaymentMethod[]
+  gameProviders   CasinoGameProvider[]
+  markets         CasinoMarket[]
+  affiliateClicks AffiliateClick[]
+  userReviews     UserReview[]
+  complaints      Complaint[]
+  createdById     String?
+  createdBy       User?                 @relation("CasinoCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById     String?
+  updatedBy       User?                 @relation("CasinoUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([status])
+  @@index([updatedAt])
+}
+
+model License {
+  id           String               @id @default(cuid())
+  slug         String               @unique
+  sortOrder    Int                  @default(0)
+  translations LicenseTranslation[]
+  casinos      CasinoLicense[]
+}
+
+model LicenseTranslation {
+  id        String  @id @default(cuid())
+  licenseId String
+  license   License @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  locale    String
+  name      String
+
+  @@unique([licenseId, locale])
+}
+
+model CasinoLicense {
+  casinoId        String
+  casino          Casino  @relation(fields: [casinoId], references: [id], onDelete: Cascade)
+  licenseId       String
+  license         License @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  licenseNumber   String?
+  verified        Boolean @default(false)
+  verificationUrl String?
+
+  @@id([casinoId, licenseId])
+}
+
+model PayoutSpeedOption {
+  id           String                         @id @default(cuid())
+  slug         String                         @unique
+  sortOrder    Int                            @default(0)
+  translations PayoutSpeedOptionTranslation[]
+  casinos      Casino[]
+}
+
+model PayoutSpeedOptionTranslation {
+  id       String            @id @default(cuid())
+  optionId String
+  option   PayoutSpeedOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  locale   String
+  label    String
+
+  @@unique([optionId, locale])
+}
+
+model PaymentMethod {
+  id           String                      @id @default(cuid())
+  slug         String                      @unique
+  sortOrder    Int                         @default(0)
+  translations PaymentMethodTranslation[]
+  casinos      CasinoPaymentMethod[]
+}
+
+model PaymentMethodTranslation {
+  id              String        @id @default(cuid())
+  paymentMethodId String
+  paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id], onDelete: Cascade)
+  locale          String
+  name            String
+
+  @@unique([paymentMethodId, locale])
+}
+
+model CasinoPaymentMethod {
+  casinoId        String
+  casino          Casino        @relation(fields: [casinoId], references: [id], onDelete: Cascade)
+  paymentMethodId String
+  paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict)
+
+  @@id([casinoId, paymentMethodId])
+}
+
+model GameProvider {
+  id           String                     @id @default(cuid())
+  slug         String                     @unique
+  sortOrder    Int                        @default(0)
+  translations GameProviderTranslation[]
+  casinos      CasinoGameProvider[]
+}
+
+model GameProviderTranslation {
+  id             String       @id @default(cuid())
+  gameProviderId String
+  gameProvider   GameProvider @relation(fields: [gameProviderId], references: [id], onDelete: Cascade)
+  locale         String
+  name           String
+
+  @@unique([gameProviderId, locale])
+}
+
+model CasinoGameProvider {
+  casinoId       String
+  casino         Casino       @relation(fields: [casinoId], references: [id], onDelete: Cascade)
+  gameProviderId String
+  gameProvider   GameProvider @relation(fields: [gameProviderId], references: [id], onDelete: Restrict)
+
+  @@id([casinoId, gameProviderId])
+}
+
+model BonusType {
+  id           String                  @id @default(cuid())
+  slug         String                  @unique
+  sortOrder    Int                     @default(0)
+  translations BonusTypeTranslation[]
+  bonuses      Bonus[]
+}
+
+model BonusTypeTranslation {
+  id          String    @id @default(cuid())
+  bonusTypeId String
+  bonusType   BonusType @relation(fields: [bonusTypeId], references: [id], onDelete: Cascade)
+  locale      String
+  name        String
+
+  @@unique([bonusTypeId, locale])
+}
+
+model CasinoTranslation {
+  id             String   @id @default(cuid())
+  casinoId       String
+  casino         Casino   @relation(fields: [casinoId], references: [id], onDelete: Cascade)
+  locale         String // "en" | "zh" | "th"
+  name           String
+  reviewBody     String   @db.Text
+  pros           String[]
+  cons           String[]
+  seoTitle       String?
+  seoDescription String?
+
+  @@unique([casinoId, locale])
+}
+
+model Bonus {
+  id                  String             @id @default(cuid())
+  slug                String             @unique
+  sortOrder           Int                @default(0)
+  casinoId            String
+  casino              Casino             @relation(fields: [casinoId], references: [id], onDelete: Cascade)
+  typeId              String
+  bonusType           BonusType          @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  amount              String?
+  wageringRequirement String?
+  minDeposit          Float?
+  code                String?
+  expiryDate          DateTime?
+  status              ContentStatus      @default(draft)
+  translations        BonusTranslation[]
+  affiliateClicks     AffiliateClick[]
+  createdById         String?
+  createdBy           User?              @relation("BonusCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById         String?
+  updatedBy           User?              @relation("BonusUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model BonusTranslation {
+  id      String @id @default(cuid())
+  bonusId String
+  bonus   Bonus  @relation(fields: [bonusId], references: [id], onDelete: Cascade)
+  locale  String // "en" | "zh" | "th"
+  title   String
+  terms   String @db.Text
+
+  @@unique([bonusId, locale])
+}
+
+model Category {
+  id           String                @id @default(cuid())
+  slug         String                @unique
+  status       ContentStatus         @default(draft)
+  translations CategoryTranslation[]
+  casinos      CasinoCategory[]
+  createdById  String?
+  createdBy    User?                 @relation("CategoryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById  String?
+  updatedBy    User?                 @relation("CategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+}
+
+model CategoryTranslation {
+  id             String   @id @default(cuid())
+  categoryId     String
+  category       Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  locale         String // "en" | "zh" | "th"
+  name           String
+  description    String?  @db.Text
+  seoTitle       String?
+  seoDescription String?
+  methodology    String?  @db.Text
+
+  @@unique([categoryId, locale])
+}
+
+model CasinoCategory {
+  casinoId   String
+  casino     Casino               @relation(fields: [casinoId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   Category             @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  rank       Int?
+  notes      CasinoCategoryNote[]
+
+  @@id([casinoId, categoryId])
+}
+
+model CasinoCategoryNote {
+  id             String         @id @default(cuid())
+  casinoId       String
+  categoryId     String
+  casinoCategory CasinoCategory @relation(fields: [casinoId, categoryId], references: [casinoId, categoryId], onDelete: Cascade)
+  locale         String
+  editorialNote  String         @db.Text
+
+  @@unique([casinoId, categoryId, locale])
+}
+
+model User {
+  id                  String       @id // auth.users.id
+  email               String       @unique
+  displayName         String?
+  passwordHash        String?
+  role                UserRole     @default(user)
+  reviews             UserReview[]
+  casinosCreated      Casino[]     @relation("CasinoCreatedBy")
+  casinosUpdated      Casino[]     @relation("CasinoUpdatedBy")
+  bonusesCreated      Bonus[]      @relation("BonusCreatedBy")
+  bonusesUpdated      Bonus[]      @relation("BonusUpdatedBy")
+  categoriesCreated   Category[]   @relation("CategoryCreatedBy")
+  categoriesUpdated   Category[]   @relation("CategoryUpdatedBy")
+  pagesCreated        StaticPage[] @relation("StaticPageCreatedBy")
+  pagesUpdated        StaticPage[] @relation("StaticPageUpdatedBy")
+  reviewsModerated    UserReview[] @relation("ReviewModeratedBy")
+  complaints          Complaint[]  @relation("ComplaintUser")
+  complaintsModerated Complaint[]  @relation("ComplaintModeratedBy")
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+}
+
+model UserReview {
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  casinoId      String
+  casino        Casino       @relation(fields: [casinoId], references: [id], onDelete: Cascade)
+  rating        Int // 1-5
+  body          String       @db.Text
+  status        ReviewStatus @default(pending)
+  moderatedById String?
+  moderatedBy   User?        @relation("ReviewModeratedBy", fields: [moderatedById], references: [id], onDelete: SetNull)
+  moderatedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([userId, casinoId])
+  @@index([status, createdAt])
+  @@index([casinoId, createdAt])
+}
+
+model Complaint {
+  id            String          @id @default(cuid())
+  caseId        String          @unique
+  type          ReportType
+  casinoId      String?
+  casino        Casino?         @relation(fields: [casinoId], references: [id], onDelete: SetNull)
+  /// Free-text casino name when the casino isn't in the database yet (casinoId is null).
+  casinoName    String?
+  source        ComplaintSource @default(web)
+  userId        String?
+  user          User?           @relation("ComplaintUser", fields: [userId], references: [id], onDelete: SetNull)
+  telegramUserId String?
+  contactEmail   String?
+  contactName    String?
+  subject        String
+  description    String          @db.Text
+  evidenceUrls   String[]        @default([])
+  status         ComplaintStatus @default(open)
+  moderatedById  String?
+  moderatedBy    User?           @relation("ComplaintModeratedBy", fields: [moderatedById], references: [id], onDelete: SetNull)
+  moderatedAt    DateTime?
+  adminNotes     String?         @db.Text
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([status, createdAt])
+  @@index([casinoId, createdAt])
+  @@index([telegramUserId])
+}
+
+model Market {
+  id           String              @id @default(cuid())
+  code         String              @unique // ISO 3166-1 alpha-2, e.g. "US", "TH", "GB"
+  translations MarketTranslation[]
+  casinos      CasinoMarket[]
+}
+
+model MarketTranslation {
+  id       String @id @default(cuid())
+  marketId String
+  market   Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  locale   String
+  name     String
+
+  @@unique([marketId, locale])
+}
+
+model CasinoMarket {
+  casinoId      String
+  casino        Casino  @relation(fields: [casinoId], references: [id], onDelete: Cascade)
+  marketId      String
+  market        Market  @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  status        MarketAvailability @default(available)
+  affiliateLink String?
+
+  @@id([casinoId, marketId])
+}
+
+model AffiliateClick {
+  id        String   @id @default(cuid())
+  casinoId  String
+  casino    Casino   @relation(fields: [casinoId], references: [id], onDelete: Cascade)
+  bonusId   String?
+  bonus     Bonus?   @relation(fields: [bonusId], references: [id], onDelete: SetNull)
+  locale    String
+  referrer  String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([casinoId, createdAt])
+  @@index([locale, createdAt])
+}
+
+model StaticPage {
+  id           String                  @id @default(cuid())
+  slug         String                  @unique // privacy | terms | responsible-gambling
+  status       ContentStatus           @default(draft)
+  translations StaticPageTranslation[]
+  createdById  String?
+  createdBy    User?                   @relation("StaticPageCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById  String?
+  updatedBy    User?                   @relation("StaticPageUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+}
+
+model StaticPageTranslation {
+  id             String     @id @default(cuid())
+  pageId         String
+  page           StaticPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  locale         String // en | zh | th
+  title          String
+  content        String     @db.Text // Markdown
+  seoTitle       String?
+  seoDescription String?
+
+  @@unique([pageId, locale])
+}
+
+/// Key/value site settings for admin-managed public config (branding, SEO, community links).
+model SiteSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
