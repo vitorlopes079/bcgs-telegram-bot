@@ -1,6 +1,6 @@
 import type { Bot } from 'grammy';
 import type { BotContext } from '../context';
-import { findCasinos } from '../services/casinos';
+import { searchCasinos, type CasinoMatch } from '../services/casinos';
 import { getCasinoReviewSummary } from '../services/reviews';
 import { casinoUrl, formatRating } from '../site';
 import { getLocale, t, type Locale } from '../i18n';
@@ -13,7 +13,7 @@ function truncate(text: string, maxLength: number): string {
 }
 
 function renderReviewReply(
-  casino: Awaited<ReturnType<typeof findCasinos>>[number],
+  casino: CasinoMatch,
   summary: Awaited<ReturnType<typeof getCasinoReviewSummary>>,
   locale: Locale,
 ): string {
@@ -66,17 +66,17 @@ export function registerReviewCommand(bot: Bot<BotContext>) {
     }
 
     try {
-      const casinos = await findCasinos(query, 5, locale);
+      const { matches: casinos, suggestions } = await searchCasinos(query, 5, locale);
       if (casinos.length === 0) {
-        await ctx.reply(t('review.noResults', {}, locale));
+        await ctx.reply(
+          suggestions.length > 0
+            ? t('review.didYouMean', { names: suggestions.join('\n') }, locale)
+            : t('review.noResults', {}, locale),
+        );
         return;
       }
 
-      const exactMatch = casinos.find(
-        (casino) =>
-          casino.name.toLowerCase() === query.toLowerCase() ||
-          casino.slug.toLowerCase() === query.toLowerCase(),
-      );
+      const exactMatch = casinos.find((casino) => casino.matchType === 'exact');
 
       if (casinos.length > 1 && !exactMatch) {
         await ctx.reply(t('review.chooseSpecific', { names: casinos.map((casino) => casino.name).join('\n') }, locale));

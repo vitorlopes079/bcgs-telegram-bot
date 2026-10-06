@@ -25,6 +25,7 @@ const en = {
   },
   search: {
     noResults: "No casinos found matching '{query}'. Try a different name, domain, or license.",
+    didYouMean: "No casinos found matching '{query}'. Did you mean:\n{names}",
     usage: 'Please provide a name, domain, operator, or license to search. Example: /search stake.com',
     results: "Results for '{query}':\n\n{entries}",
     rating: 'Rating: {rating}',
@@ -49,6 +50,7 @@ const en = {
   review: {
     usage: 'Please provide a casino name. Example: /review <casino name>',
     noResults: 'No casino found matching that name.',
+    didYouMean: 'No casino found matching that name. Did you mean:\n{names}',
     chooseSpecific: 'Multiple casinos found. Please be more specific:\n{names}',
     overallRating: 'Overall rating: {rating}',
     editorialSummary: 'Editorial summary:',

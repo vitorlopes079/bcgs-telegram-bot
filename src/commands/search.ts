@@ -1,14 +1,16 @@
 import type { Bot } from 'grammy';
 import type { BotContext } from '../context';
-import { findCasinos } from '../services/casinos';
+import { searchCasinos } from '../services/casinos';
 import { casinoUrl, formatRating } from '../site';
 import { getLocale, t, type Locale } from '../i18n';
 
 export async function buildSearchReply(query: string, locale: Locale = 'en'): Promise<string> {
-  const casinos = await findCasinos(query, undefined, locale);
+  const { matches: casinos, suggestions } = await searchCasinos(query, undefined, locale);
 
   if (casinos.length === 0) {
-    return t('search.noResults', { query }, locale);
+    return suggestions.length > 0
+      ? t('search.didYouMean', { query, names: suggestions.join('\n') }, locale)
+      : t('search.noResults', { query }, locale);
   }
 
   const entries = casinos.map((casino, index) =>

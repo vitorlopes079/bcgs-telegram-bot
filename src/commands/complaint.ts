@@ -111,10 +111,11 @@ async function askCasino(
     return unlisted;
   }
 
+  // Every path here still asks yes/no or for a number; a fuzzy match is never accepted on its own.
   const strongMatch =
     matches.length === 1
       ? matches[0]
-      : matches.find((match) => match.name.toLowerCase() === input.toLowerCase());
+      : matches.find((match) => match.matchType === 'exact');
 
   if (strongMatch) {
     const confirmed = await askYesNo(
