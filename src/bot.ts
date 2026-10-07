@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { Bot } from 'grammy';
 import { registerHandlers } from './app';
-import { setBotCommands } from './command-menu';
+import { refreshSavedChatCommands, setBotCommands } from './command-menu';
 import type { BotContext } from './context';
 import { resolveLocale } from './middleware/locale';
 import { rateLimit, stopRateLimitCleanup } from './middleware/ratelimit';
@@ -75,6 +75,9 @@ void bot.start({
     } catch (error) {
       console.warn('Failed to set bot command menus.');
     }
+    void refreshSavedChatCommands(bot.api)
+      .then((count) => console.log(`Refreshed ${count} chat command menus.`))
+      .catch(() => console.warn('Failed to refresh chat command menus.'));
   },
 }).catch((error: unknown) => {
   if (isTelegramConflict(error)) {

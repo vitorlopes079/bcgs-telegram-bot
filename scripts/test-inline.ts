@@ -11,7 +11,7 @@ import {
   const zh = (await import('../src/i18n/zh')).default;
   const th = (await import('../src/i18n/th')).default;
   const { t } = await import('../src/i18n');
-  const { encodeNav, decodeNav, MAX_CALLBACK_BYTES } = await import('../src/callback-data');
+  const { encodeNav, decodeNav, decodeFlowButton, MAX_CALLBACK_BYTES } = await import('../src/callback-data');
 
   const LONG = 'the-extremely-long-casino-slug-example-2026';
   /** Inline keyboard of the last message sent or edited since `from`. */
@@ -38,10 +38,10 @@ import {
   console.log('\n== Search: single match is a casino card ==');
   let at = await send(textUpdate(english, '/search stake'));
   check('text unchanged', texts(at)[0]?.startsWith("Results for 'stake':\n\n1. Stake\nRating: 4.6/5") ?? false, texts(at)[0]);
-  check('View Full Review + Visit Website, then Submit Complaint',
-    JSON.stringify(shape(buttons(at))) === JSON.stringify([[url('stake'), url('stake')], ['cp']]), shape(buttons(at)));
+  check('Read Review (callback) + Visit Website (BC.GS page), then Submit Complaint',
+    JSON.stringify(shape(buttons(at))) === JSON.stringify([['v:stake', url('stake')], ['cp:stake']]), shape(buttons(at)));
   check('labels with emoji', JSON.stringify(rowLabels(buttons(at))) ===
-    JSON.stringify([['📖 View Full Review', '🌐 Visit Website'], ['📝 Submit Complaint']]), rowLabels(buttons(at)));
+    JSON.stringify([['📖 Read Review', '🌐 Visit Website'], ['📝 Submit Complaint']]), rowLabels(buttons(at)));
   check('a single result is not sent as a reply', !sends(at)[0]?.payload.reply_parameters);
 
   console.log('\n== Search: several matches list casinos, tapping opens a card ==');
@@ -58,7 +58,7 @@ import {
   check('card edited in place, answered', edits(at).length === 1 && sends(at).length === 0 && answers(at).length === 1 && !answers(at)[0].payload.text);
   check('card text', edits(at)[0]?.payload.text === `Bravo Casino\nRating: 4.0/5\nLicense: None listed\nhttps://www.bc.gs/en/casinos/bravo-casino`, edits(at)[0]?.payload.text);
   check('card buttons end with Back', JSON.stringify(shape(buttons(at))) ===
-    JSON.stringify([[url('bravo-casino'), url('bravo-casino')], ['cp'], ['sb']]), shape(buttons(at)));
+    JSON.stringify([['sv:bravo-casino', url('bravo-casino')], ['cp:bravo-casino'], ['sb']]), shape(buttons(at)));
   at = await tap(english, 'sb', { replyToText: '/search casino' });
   check('Back restores the same list in place', edits(at)[0]?.payload.text === listText &&
     JSON.stringify(buttons(at)) === JSON.stringify(listRows));
@@ -69,7 +69,7 @@ import {
 
   console.log('\n== Review ==');
   at = await send(textUpdate(english, '/review stake'));
-  check('review: Visit Website + Submit Complaint, no Back', JSON.stringify(shape(buttons(at))) === JSON.stringify([[url('stake'), 'cp']]), shape(buttons(at)));
+  check('review: Visit Website, Submit Complaint on its own row, no Back', JSON.stringify(shape(buttons(at))) === JSON.stringify([[url('stake')], ['cp:stake']]), shape(buttons(at)));
   check('review text unchanged', texts(at)[0]?.startsWith('Stake\nOverall rating: 4.6/5') ?? false);
   at = await send(textUpdate(english, '/review casino'));
   const chooseText = texts(at)[0];
@@ -77,7 +77,7 @@ import {
     buttons(at).flat().map((b) => b.callback_data).join() === 'r:alpha-casino,r:bravo-casino,r:charlie-casino,r:delta-casino,r:echo-casino');
   at = await tap(english, 'r:alpha-casino', { replyToText: '/review casino' });
   check('review opened from the list, with Back last', edits(at)[0]?.payload.text.startsWith('Alpha Casino\nOverall rating: 4.1/5') &&
-    JSON.stringify(shape(buttons(at))) === JSON.stringify([[url('alpha-casino'), 'cp'], ['rb']]), shape(buttons(at)));
+    JSON.stringify(shape(buttons(at))) === JSON.stringify([[url('alpha-casino')], ['cp:alpha-casino'], ['rb']]), shape(buttons(at)));
   at = await tap(english, 'rb', { replyToText: '/review@offline_bot casino' });
   check('Back to the /review list', edits(at)[0]?.payload.text === chooseText);
 
@@ -101,8 +101,9 @@ import {
   at = await tap(english, 'k:4');
   check('page past the end -> "no longer available"', unavailableOnly(at, en.buttons.unavailable));
   at = await tap(english, 'kr:2:echo-casino');
-  check('casino from rankings opens its review with Back to that page',
-    edits(at)[0]?.payload.text.startsWith('Echo Casino') && JSON.stringify(shape(buttons(at)).at(-1)) === JSON.stringify(['k:2']));
+  check('casino from rankings opens its card with Back to that page',
+    edits(at)[0]?.payload.text.startsWith('Echo Casino\nRating:') &&
+    JSON.stringify(shape(buttons(at))) === JSON.stringify([['kv:2:echo-casino', url('echo-casino')], ['cp:echo-casino'], ['k:2']]), shape(buttons(at)));
   at = await tap(english, 'k:2');
   check('...and Back returns to page 2', edits(at)[0]?.payload.text.includes('6. Delta Casino') ?? false);
   at = await send(textUpdate(english, '/rankings Crypto Casinos'));
@@ -112,22 +113,25 @@ import {
   check('category last page', edits(at)[0]?.payload.text.startsWith('Top 12 casinos in Crypto Casinos:\n\n11. India Casino') &&
     JSON.stringify(shape(buttons(at)).at(-1)) === JSON.stringify(['k:2:crypto']), edits(at)[0]?.payload.text);
   at = await tap(english, `kr:3:${LONG}:crypto`);
-  check('long slug + category review works, Back keeps the category', edits(at)[0]?.payload.text.startsWith('Juliet Casino') &&
-    JSON.stringify(shape(buttons(at)).at(-1)) === JSON.stringify(['k:3:crypto']));
+  check('long slug + category card works, Back keeps the category', edits(at)[0]?.payload.text.startsWith('Juliet Casino') &&
+    JSON.stringify(shape(buttons(at)).at(-1)) === JSON.stringify(['k:3:crypto']) && shape(buttons(at))[0][0] === `kv:3:${LONG}:crypto`);
+  at = await tap(english, `kv:3:${LONG}:crypto`);
+  check('...its review keeps the category on Back to the card', edits(at)[0]?.payload.text.startsWith('Juliet Casino\nOverall rating') &&
+    JSON.stringify(shape(buttons(at)).at(-1)) === JSON.stringify([`kr:3:${LONG}:crypto`]));
   at = await tap(english, 'k:1:no-such-category');
   check('removed category -> "no longer available"', unavailableOnly(at, en.buttons.unavailable));
 
   console.log('\n== Links ==');
   siteSettings.set('telegram_channel_url', 'https://t.me/bcgs_official');
   at = await send(textUpdate(english, '/links'));
-  check('without Discord: Website + Official Community, no Discord', JSON.stringify(shape(buttons(at))) ===
+  check('without Discord: Website + Community, no Discord', JSON.stringify(shape(buttons(at))) ===
     JSON.stringify([['url:https://www.bc.gs', 'url:https://t.me/bcgs_official']]), shape(buttons(at)));
   check('links text unchanged', texts(at)[0] === '🔗 BC.GS Links\n\n🌐 Website: https://www.bc.gs\n💬 Official Community: https://t.me/bcgs_official');
   siteSettings.set('discord_channel_url', 'https://discord.gg/bcgs');
   at = await send(textUpdate(english, '/links'));
   check('with Discord: Discord on its own row', JSON.stringify(shape(buttons(at))) ===
     JSON.stringify([['url:https://www.bc.gs', 'url:https://t.me/bcgs_official'], ['url:https://discord.gg/bcgs']]) &&
-    rowLabels(buttons(at)).flat().join() === '🌐 Website,💬 Official Community,🎮 Discord', rowLabels(buttons(at)));
+    rowLabels(buttons(at)).flat().join() === '🌐 Website,💬 Community,🎮 Discord', rowLabels(buttons(at)));
   siteSettings.set('telegram_channel_url', '   ');
   siteSettings.delete('discord_channel_url');
   at = await send(textUpdate(english, '/links'));
@@ -169,12 +173,12 @@ import {
   const groupUser: User = { id: 3003, language_code: 'en' };
   at = await send(textUpdate(groupUser, '/search stake', 'supergroup'));
   const complaintButton = buttons(at)[1]?.[0];
-  check('Submit Complaint is a URL deep link, never a callback', complaintButton?.url === 'https://t.me/offline_bot?start=complaint' &&
+  check('Submit Complaint is a URL deep link, never a callback', complaintButton?.url === 'https://t.me/offline_bot?start=complaint_stake' &&
     !complaintButton?.callback_data && complaintButton?.text === '📝 Submit Complaint', complaintButton);
   at = await send(textUpdate(groupUser, '/review stake', 'supergroup'));
-  check('review in group: complaint is the deep link too', buttons(at)[0]?.[1]?.url === 'https://t.me/offline_bot?start=complaint');
+  check('review in group: complaint is the deep link too', buttons(at)[1]?.[0]?.url === 'https://t.me/offline_bot?start=complaint_stake');
   at = await tap(groupUser, 's:stake', { chatType: 'supergroup', replyToText: '/search st' });
-  check('card opened in a group: deep link button', buttons(at)[1]?.[0]?.url === 'https://t.me/offline_bot?start=complaint' &&
+  check('card opened in a group: deep link button', buttons(at)[1]?.[0]?.url === 'https://t.me/offline_bot?start=complaint_stake' &&
     edits(at).length === 1);
   at = await tap(groupUser, 'k:2', { chatType: 'supergroup' });
   check('rankings paging works in a group', edits(at)[0]?.payload.text.includes('6. Delta Casino') ?? false);
@@ -195,15 +199,18 @@ import {
   settings.set('3005', 'th');
   at = await send(textUpdate(zhUser, '/search stake'));
   check('zh card labels and Chinese site URL', JSON.stringify(rowLabels(buttons(at))) ===
-    JSON.stringify([['📖 查看完整评测', '🌐 访问网站'], ['📝 提交投诉']]) && buttons(at)[0][0].url === 'https://www.bc.gs/zh/casinos/stake');
+    JSON.stringify([['📖 阅读评测', '🌐 访问网站'], ['📝 提交投诉']]) && buttons(at)[0][1].url === 'https://www.bc.gs/zh/casinos/stake');
   at = await send(textUpdate(zhUser, '/rankings'));
   check('zh rankings: localized names on buttons, Chinese Next', buttons(at)[2][0].text === '3. 阿尔法娱乐场' && buttons(at)[5][0].text === '▶️ 下一页');
   at = await tap(thUser, 'k:2');
   check('th pager labels', rowLabels(buttons(at)).at(-1)?.join() === '◀️ ก่อนหน้า,▶️ ถัดไป');
   at = await tap(thUser, 'kr:1:alpha-casino');
-  check('th review from rankings: Thai name, Thai buttons, Thai URL', edits(at)[0]?.payload.text.startsWith('อัลฟ่าคาสิโน') &&
-    JSON.stringify(rowLabels(buttons(at))) === JSON.stringify([['🌐 เยี่ยมชมเว็บไซต์', '📝 ส่งข้อร้องเรียน'], ['⬅️ ย้อนกลับ']]) &&
-    buttons(at)[0][0].url === 'https://www.bc.gs/th/casinos/alpha-casino', rowLabels(buttons(at)));
+  check('th card from rankings: Thai name, Thai buttons, Thai URL', edits(at)[0]?.payload.text.startsWith('อัลฟ่าคาสิโน') &&
+    JSON.stringify(rowLabels(buttons(at))) === JSON.stringify([['📖 อ่านรีวิว', '🌐 เยี่ยมชมเว็บไซต์'], ['📝 ส่งข้อร้องเรียน'], ['⬅️ ย้อนกลับ']]) &&
+    buttons(at)[0][1].url === 'https://www.bc.gs/th/casinos/alpha-casino', rowLabels(buttons(at)));
+  at = await tap(thUser, 'kv:1:alpha-casino');
+  check('th review view: Thai labels, one button per row', JSON.stringify(rowLabels(buttons(at))) ===
+    JSON.stringify([['🌐 เยี่ยมชมเว็บไซต์'], ['📝 ส่งข้อร้องเรียน'], ['⬅️ ย้อนกลับ']]), rowLabels(buttons(at)));
   at = await tap(thUser, 's:gone');
   check('th "no longer available"', unavailableOnly(at, th.buttons.unavailable));
   at = await send(textUpdate(thUser, '/links'));
@@ -221,11 +228,29 @@ import {
   const longest = allData.reduce((max: string, d: string) => (Buffer.byteLength(d) > Buffer.byteLength(max) ? d : max), '');
   check(`all ${allData.length} callback data sent are <= 64 bytes (longest ${Buffer.byteLength(longest)}: ${longest})`,
     allData.every((d: string) => Buffer.byteLength(d, 'utf8') <= MAX_CALLBACK_BYTES));
-  check('every callback data sent decodes (or is a language button)', allData.every((d: string) => decodeNav(d) || d.startsWith('lang:')));
-  check('encoder refuses data over 64 bytes instead of sending it', encodeNav({ kind: 'rankingsReview', page: 1, slug: 'x'.repeat(70) }) === null);
-  check('round trip', JSON.stringify(decodeNav(encodeNav({ kind: 'rankingsReview', page: 3, slug: LONG, category: 'crypto' })!)) ===
-    JSON.stringify({ kind: 'rankingsReview', page: 3, slug: LONG, category: 'crypto' }));
+  check('every callback data sent decodes (navigation, flow or language button)',
+    allData.every((d: string) => decodeNav(d) || decodeFlowButton(d) || d.startsWith('lang:')));
+  check('encoder refuses data over 64 bytes instead of sending it', encodeNav({ kind: 'rankingsCard', page: 1, slug: 'x'.repeat(70) }) === null);
+  check('round trip', JSON.stringify(decodeNav(encodeNav({ kind: 'rankingsCard', page: 3, slug: LONG, category: 'crypto' })!)) ===
+    JSON.stringify({ kind: 'rankingsCard', page: 3, slug: LONG, category: 'crypto' }));
   check('every tap was answered exactly once', badAnswers.length === 0, badAnswers);
+
+  console.log('\n== Labels fit in half a row ==');
+  // Rough on-screen width: emoji and CJK take two cells, Thai vowel and tone marks take none.
+  const width = (text: string) => [...text].reduce((sum, ch) =>
+    sum + (/[\p{M}\uFE0F]/u.test(ch) ? 0 : /[\p{Extended_Pictographic}\p{Script=Han}\u3000-\u303F\uFF00-\uFFEF]/u.test(ch) ? 2 : 1), 0);
+  // "📖 View Full Review" (19 cells) was cut off on a small phone; the widest requested label is "🌐 Visit Website".
+  const cutOff = width('📖 View Full Review');
+  const budget = width('🌐 Visit Website');
+  const pairedLabels = calls.flatMap((c) => c.payload.reply_markup?.inline_keyboard ?? [])
+    .filter((row: any[]) => row.length === 2).flat().map((b: any) => b.text as string);
+  const tooWide = [...new Set(pairedLabels)].filter((text) => width(text) > budget);
+  check(`every label sharing a row is no wider than "🌐 Visit Website" (${budget} cells, the cut-off one was ${cutOff}), ${new Set(pairedLabels).size} checked`,
+    tooWide.length === 0 && budget < cutOff, tooWide.map((text) => `${text} = ${width(text)}`));
+  for (const [name, catalog] of [['en', en], ['zh', zh], ['th', th]] as const) {
+    const { unavailable, ...labels } = catalog.buttons;
+    console.log(`  ${name}: ${Object.entries(labels).map(([key, text]) => `${key}=${text} (${width(text)})`).join(', ')}`);
+  }
 
   finish();
 })().catch((error) => {

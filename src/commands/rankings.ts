@@ -66,7 +66,7 @@ export async function buildRankingsScreen(
     text: formatList(title, pageCasinos, firstIndex + 1, locale),
     keyboard: rankingsKeyboard(
       pageCasinos.map((casino, index) => ({ slug: casino.slug, label: `${firstIndex + index + 1}. ${casino.name}` })),
-      (slug) => ({ kind: 'rankingsReview', page, slug, category: categorySlug }),
+      (slug) => ({ kind: 'rankingsCard', page, slug, category: categorySlug }),
       pagerRow(page, pageCount, toPage, locale),
     ),
   };

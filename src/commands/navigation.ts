@@ -18,8 +18,12 @@ function repliedQuery(ctx: BotContext): string | null {
 
 async function screenFor(ctx: BotContext, action: NavAction, locale: Locale): Promise<Screen | null> {
   switch (action.kind) {
+    case 'card':
     case 'searchCard':
-      return buildCasinoCardScreen(ctx, action.slug, locale);
+    case 'rankingsCard':
+      return buildCasinoCardScreen(ctx, action, locale);
+    case 'cardReview':
+      return buildReviewScreenBySlug(ctx, action.card.slug, locale, action.card);
     case 'searchBack': {
       const query = repliedQuery(ctx);
       return query ? buildSearchScreen(ctx, query, locale) : null;
@@ -32,12 +36,6 @@ async function screenFor(ctx: BotContext, action: NavAction, locale: Locale): Pr
     }
     case 'rankingsPage':
       return buildRankingsScreen(ctx, action.category ?? '', action.page, locale, true);
-    case 'rankingsReview':
-      return buildReviewScreenBySlug(ctx, action.slug, locale, {
-        kind: 'rankingsPage',
-        page: action.page,
-        category: action.category,
-      });
     case 'complaint':
       return null;
   }
@@ -54,7 +52,7 @@ export function registerNavigation(bot: Bot<BotContext>) {
       if (action.kind === 'complaint') {
         await ctx.answerCallbackQuery();
         // Groups only ever get a URL button; startComplaintFlow still refuses to run the flow outside private chats.
-        await startComplaintFlow(ctx, 'complaint');
+        await startComplaintFlow(ctx, 'complaint', action.slug);
         return;
       }
 

@@ -1,6 +1,6 @@
 import { GrammyError, InlineKeyboard } from 'grammy';
 import type { InlineKeyboardButton } from 'grammy/types';
-import { encodeNav, type NavAction } from './callback-data';
+import { complaintStartParameter, encodeNav, type CardAction, type NavAction } from './callback-data';
 import type { BotContext } from './context';
 import type { Messages } from './i18n/en';
 import { t, type Locale } from './i18n';
@@ -49,29 +49,36 @@ function keyboard(rows: (InlineKeyboardButton | null)[][]): InlineKeyboard | und
   return kept.length > 0 ? InlineKeyboard.from(kept as Row[]) : undefined;
 }
 
-/** In private chats this starts the flow; in groups it deep-links to the private chat, never starting the flow there. */
-function complaintButton(ctx: BotContext, locale: Locale): InlineKeyboardButton | null {
+/**
+ * Starts the flow with this casino preselected. In private chats it starts it directly; in groups it
+ * deep-links to the private chat, never starting the flow there.
+ */
+function complaintButton(ctx: BotContext, slug: string, locale: Locale): InlineKeyboardButton | null {
   const text = label('submitComplaint', locale);
-  if (ctx.chat?.type === 'private') return navButton(text, { kind: 'complaint' });
-  return urlButton(text, ctx.me.username ? `https://t.me/${ctx.me.username}?start=complaint` : undefined);
+  if (ctx.chat?.type === 'private') return navButton(text, { kind: 'complaint', slug });
+  return urlButton(text, ctx.me.username ? `https://t.me/${ctx.me.username}?start=${complaintStartParameter(slug)}` : undefined);
 }
 
 function backRow(back: NavAction | undefined, locale: Locale): (InlineKeyboardButton | null)[] {
   return back ? [navButton(label('back', locale), back)] : [];
 }
 
-export function casinoCardKeyboard(ctx: BotContext, slug: string, locale: Locale, back?: NavAction) {
-  const url = casinoUrl(slug, locale);
+/** Read Review opens the review in this message; Visit Website is the casino's BC.GS page. */
+export function casinoCardKeyboard(ctx: BotContext, card: CardAction, locale: Locale, back?: NavAction) {
   return keyboard([
-    [urlButton(label('viewReview', locale), url), urlButton(label('visitWebsite', locale), url)],
-    [complaintButton(ctx, locale)],
+    [
+      navButton(label('viewReview', locale), { kind: 'cardReview', card }),
+      urlButton(label('visitWebsite', locale), casinoUrl(card.slug, locale)),
+    ],
+    [complaintButton(ctx, card.slug, locale)],
     backRow(back, locale),
   ]);
 }
 
 export function reviewKeyboard(ctx: BotContext, slug: string, locale: Locale, back?: NavAction) {
   return keyboard([
-    [urlButton(label('visitWebsite', locale), casinoUrl(slug, locale)), complaintButton(ctx, locale)],
+    [urlButton(label('visitWebsite', locale), casinoUrl(slug, locale))],
+    [complaintButton(ctx, slug, locale)],
     backRow(back, locale),
   ]);
 }

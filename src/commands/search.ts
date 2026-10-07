@@ -1,4 +1,5 @@
 import type { Bot } from 'grammy';
+import type { CardAction, NavAction } from '../callback-data';
 import type { BotContext } from '../context';
 import { casinoCardKeyboard, casinoListKeyboard, sendScreen, type Screen } from '../inline-keyboards';
 import { getCasinoBySlug, searchCasinos, type LocalizedCasinoMatch } from '../services/casinos';
@@ -30,7 +31,9 @@ export async function buildSearchScreen(ctx: BotContext, query: string, locale: 
   const entries = casinos.map((casino, index) => formatEntry(casino, `${index + 1}. ${casino.name}`, locale));
   const text = t('search.results', { query, entries: entries.join('\n\n') }, locale);
 
-  if (casinos.length === 1) return { text, keyboard: casinoCardKeyboard(ctx, casinos[0].slug, locale) };
+  if (casinos.length === 1) {
+    return { text, keyboard: casinoCardKeyboard(ctx, { kind: 'card', slug: casinos[0].slug }, locale) };
+  }
   return {
     text,
     keyboard: casinoListKeyboard(
@@ -41,13 +44,24 @@ export async function buildSearchScreen(ctx: BotContext, query: string, locale: 
   };
 }
 
-/** A casino card opened from a search list, with Back to that list; null if the casino is gone. */
-export async function buildCasinoCardScreen(ctx: BotContext, slug: string, locale: Locale): Promise<Screen | null> {
-  const casino = await getCasinoBySlug(slug, locale);
+function cardBack(card: CardAction): NavAction | undefined {
+  switch (card.kind) {
+    case 'card':
+      return undefined;
+    case 'searchCard':
+      return { kind: 'searchBack' };
+    case 'rankingsCard':
+      return { kind: 'rankingsPage', page: card.page, category: card.category };
+  }
+}
+
+/** A casino card opened from a button, with Back to where it was opened from; null if the casino is gone. */
+export async function buildCasinoCardScreen(ctx: BotContext, card: CardAction, locale: Locale): Promise<Screen | null> {
+  const casino = await getCasinoBySlug(card.slug, locale);
   if (!casino) return null;
   return {
     text: formatEntry(casino, casino.name, locale),
-    keyboard: casinoCardKeyboard(ctx, casino.slug, locale, { kind: 'searchBack' }),
+    keyboard: casinoCardKeyboard(ctx, card, locale, cardBack(card)),
   };
 }
 

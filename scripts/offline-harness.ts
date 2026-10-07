@@ -53,12 +53,27 @@ const casinos = [
     ],
     licenses: [] as { licenseNumber: string; license: { translations: { locale: string; name: string }[] } }[],
   })),
+  // Unpublished: must never be found, listed or preselected.
+  {
+    id: 'c-draft', slug: 'draft-casino', overallRating: 1.0, status: 'draft',
+    translations: [{ locale: 'en', name: 'Draft Casino' }],
+    licenses: [],
+  },
 ];
 const casinoTranslations = [
   { casinoId: 'c-stake', locale: 'en', reviewBody: 'English editorial review of Stake.' },
   { casinoId: 'c-stake', locale: 'zh', reviewBody: '   ' },
   { casinoId: 'c-stake', locale: 'th', reviewBody: 'รีวิวภาษาไทยของ Stake' },
+  // Longer than the 500-character excerpt.
+  { casinoId: 'c-delta', locale: 'en', reviewBody: 'Delta Casino pays out quickly and support answers fast. '.repeat(40).trim() },
 ];
+// Very long author names, so the review message would pass Telegram's 4096-character limit.
+const userReviews: Record<string, { rating: number; body: string; createdAt: Date; user: { displayName: string } }[]> = {
+  'c-charlie': [1, 2, 3].map((n) => ({
+    rating: 4, body: `Review ${n}. ${'Solid games and fair bonuses. '.repeat(10)}`, createdAt: new Date(2026, 0, n),
+    user: { displayName: `Reviewer${n} ${'with a very long display name '.repeat(50)}`.trim() },
+  })),
+};
 const category = {
   id: 'cat-crypto', slug: 'crypto', status: 'published',
   translations: [{ locale: 'en', name: 'Crypto Casinos' }, { locale: 'zh', name: '加密货币娱乐场' }],
@@ -91,7 +106,7 @@ function shapeCasino(casino: (typeof casinos)[number], select: any): Row {
   }
   return out;
 }
-const byRating = [...casinos].sort((a, b) => b.overallRating - a.overallRating);
+const byRating = casinos.filter((casino) => casino.status === 'published').sort((a, b) => b.overallRating - a.overallRating);
 
 const prismaStub: Record<string, Row> = {
   telegramUserSetting: {
@@ -99,6 +114,11 @@ const prismaStub: Record<string, Row> = {
       db.findUnique += 1;
       const language = settings.get(where.telegramUserId);
       return language ? { language } : null;
+    },
+    findMany: async ({ take, cursor }: any) => {
+      const rows = [...settings].sort(([a], [b]) => a.localeCompare(b)).map(([telegramUserId, language]) => ({ telegramUserId, language }));
+      const start = cursor ? rows.findIndex((row) => row.telegramUserId === cursor.telegramUserId) + 1 : 0;
+      return rows.slice(start, start + take);
     },
     upsert: async (args: any) => {
       db.upserts.push(args);
@@ -129,8 +149,11 @@ const prismaStub: Record<string, Row> = {
       casinoTranslations.filter((row) => row.casinoId === where.casinoId && where.locale.in.includes(row.locale)),
   },
   userReview: {
-    aggregate: async () => ({ _avg: { rating: null }, _count: 0 }),
-    findMany: async () => [],
+    aggregate: async ({ where }: any) => {
+      const rows = userReviews[where.casinoId] ?? [];
+      return { _avg: { rating: rows.length ? 4 : null }, _count: rows.length };
+    },
+    findMany: async ({ where }: any) => userReviews[where.casinoId] ?? [],
   },
   complaint: {
     count: async () => 0,
@@ -152,7 +175,7 @@ const fakeFetch = (async (url: string | URL, init?: RequestInit) => {
   const method = String(url).split('/').pop() ?? '';
   const payload = init?.body ? JSON.parse(String(init.body)) : {};
   calls.push({ method, payload });
-  const returnsTrue = ['answerCallbackQuery', 'setMyCommands', 'setChatMenuButton'].includes(method);
+  const returnsTrue = ['answerCallbackQuery', 'setMyCommands', 'deleteMyCommands', 'setChatMenuButton'].includes(method);
   return new Response(JSON.stringify({
     ok: true,
     result: returnsTrue

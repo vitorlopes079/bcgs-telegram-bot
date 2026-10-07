@@ -1,4 +1,5 @@
 import type { Bot } from 'grammy';
+import { decodeStartParameter } from './callback-data';
 import { registerComplaintCommands, startComplaintFlow } from './commands/complaint';
 import { buildHelpReply, registerHelpCommand } from './commands/help';
 import { registerLanguageCommand, showLanguageSelector } from './commands/language';
@@ -19,26 +20,27 @@ export function registerHandlers(bot: Bot<BotContext>) {
   registerMainMenu(bot);
 
   bot.command('start', async (ctx) => {
-    const payload = typeof ctx.match === 'string' ? ctx.match.trim() : '';
+    const payload = decodeStartParameter(typeof ctx.match === 'string' ? ctx.match.trim() : '');
     if (ctx.chat.type === 'private') {
-      if (payload === 'language') {
+      if (payload.kind === 'language') {
         await showLanguageSelector(ctx);
         return;
       }
       if (!ctx.savedLocale) {
         await showLanguageSelector(
           ctx,
-          payload === 'complaint' ? 'complaint' : payload === 'report' ? 'report' : 'start',
+          payload.kind === 'complaint' || payload.kind === 'report' ? payload.kind : 'start',
+          payload.kind === 'complaint' ? payload.slug : undefined,
         );
         return;
       }
     }
 
-    if (payload === 'complaint') {
-      await startComplaintFlow(ctx, 'complaint');
+    if (payload.kind === 'complaint') {
+      await startComplaintFlow(ctx, 'complaint', payload.slug);
       return;
     }
-    if (payload === 'report') {
+    if (payload.kind === 'report') {
       await startComplaintFlow(ctx, 'scam_report');
       return;
     }

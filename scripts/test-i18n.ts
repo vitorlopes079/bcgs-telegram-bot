@@ -209,8 +209,8 @@ import {
   check('English lists have no language_code', menuCalls.filter((c) => !c.payload.language_code).length === 2);
   const zhPrivate = menuCalls.find((c) => c.payload.language_code === 'zh' && c.payload.scope.type === 'all_private_chats');
   check('zh private menu: English command names, Chinese descriptions',
-    zhPrivate?.payload.commands.map((c: any) => c.command).join() === 'menu,start,help,search,review,rankings,links,complaint,report,language' &&
-    zhPrivate?.payload.commands[3].description === zh.menu.search);
+    zhPrivate?.payload.commands.map((c: any) => c.command).join() === 'menu,start' &&
+    zhPrivate?.payload.commands[1].description === zh.menu.start);
   check('th group menu present', menuCalls.some((c) => c.payload.language_code === 'th' && c.payload.scope.type === 'all_group_chats'));
 
   finish();
