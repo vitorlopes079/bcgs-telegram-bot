@@ -13,7 +13,7 @@ function formatList(title: string, casinos: RankedCasino[], locale: Locale): str
   const entries = casinos.map((casino, index) =>
     t('rankings.rankedCasino', {
       rank: index + 1,
-      name: casino.translations[0]?.name ?? casino.slug,
+      name: casino.name,
       rating: formatRating(casino.overallRating, locale),
       url: casinoUrl(casino.slug, locale),
     }, locale),
@@ -35,7 +35,7 @@ async function categoryRankings(input: string, locale: Locale): Promise<string> 
     return t('rankings.categoryNotFound', { input }, locale);
   }
 
-  const categoryName = category.translations[0]?.name ?? category.slug;
+  const categoryName = category.name;
 
   const casinos = await getTopCasinosInCategory(category.id, locale);
 

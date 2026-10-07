@@ -7,8 +7,15 @@ const en = {
     welcome: 'Welcome to BC.GS!',
   },
   help: {
-    private: 'Welcome to BC.GS! Find casino information, ratings, and reviews.\n\n/search — Search casinos by name, domain, or license.\n/review — Read a casino’s ratings and reviews.\n/rankings — See the top casinos overall or by category.\n/links — Get our website and community links.\n/complaint — Submit a complaint.\n/report — Report a scam.\n/help — Show this command list.',
-    group: 'Welcome to BC.GS! Find casino information, ratings, and reviews.\n\n/search — Search casinos by name, domain, or license.\n/review — Read a casino’s ratings and reviews.\n/rankings — See the top casinos overall or by category.\n/links — Get our website and community links.\n/complaint — Submit a complaint (private chat only).\n/report — Report a scam (private chat only).\n/help — Show this command list.',
+    private: 'Welcome to BC.GS! Find casino information, ratings, and reviews.\n\n/search — Search casinos by name, domain, or license.\n/review — Read a casino’s ratings and reviews.\n/rankings — See the top casinos overall or by category.\n/links — Get our website and community links.\n/complaint — Submit a complaint.\n/report — Report a scam.\n/language — Change the bot language.\n/help — Show this command list.',
+    group: 'Welcome to BC.GS! Find casino information, ratings, and reviews.\n\n/search — Search casinos by name, domain, or license.\n/review — Read a casino’s ratings and reviews.\n/rankings — See the top casinos overall or by category.\n/links — Get our website and community links.\n/complaint — Submit a complaint (private chat only).\n/report — Report a scam (private chat only).\n/language — Change the bot language (private chat only).\n/help — Show this command list.',
+  },
+  language: {
+    /** Shown on the language button, in the language itself. */
+    name: 'English',
+    choose: 'Choose your language:',
+    saved: 'Language set to English.',
+    privateOnly: 'Please send me a direct message to change your language.',
   },
   menu: {
     start: 'Show the welcome message and command list.',
@@ -19,6 +26,7 @@ const en = {
     links: 'Get our website and community links.',
     complaint: 'Submit a complaint.',
     report: 'Report a scam.',
+    language: 'Change the bot language.',
   },
   rateLimit: {
     slowDown: 'Slow down, please try again in a few seconds.',
@@ -104,7 +112,20 @@ const en = {
     expired: 'Your submission expired after 30 minutes of inactivity, so nothing was saved. You can start again anytime with /complaint or /report',
     privacy: 'For privacy, please send me a direct message to submit a {label}.',
     nothingToCancel: "There's nothing to cancel right now.",
+    /** Comma-separated replies the flow accepts. Words from every catalog are accepted in every language. */
+    keywords: {
+      yes: 'yes,y',
+      no: 'no,n',
+      skip: 'skip',
+      done: 'done',
+      none: 'none',
+    },
   },
 } as const;
+
+type Shape<T> = { readonly [K in keyof T]: T[K] extends string ? string : Shape<T[K]> };
+
+/** Every other catalog must have exactly these keys. */
+export type Messages = Shape<typeof en>;
 
 export default en;

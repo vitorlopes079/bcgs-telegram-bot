@@ -1,5 +1,7 @@
 import { ReviewStatus } from '@prisma/client';
+import type { Locale } from '../i18n';
 import { prisma } from '../prisma';
+import { contentLocales, pickTranslated } from './translations';
 
 export type CasinoReviewSummary = {
   editorialSummary: string | null;
@@ -15,12 +17,12 @@ export type CasinoReviewSummary = {
 
 export async function getCasinoReviewSummary(
   casinoId: string,
-  locale: string,
+  locale: Locale,
 ): Promise<CasinoReviewSummary> {
-  const [translation, ratingSummary, latestReviews] = await Promise.all([
-    prisma.casinoTranslation.findFirst({
-      where: { casinoId, locale },
-      select: { reviewBody: true },
+  const [translations, ratingSummary, latestReviews] = await Promise.all([
+    prisma.casinoTranslation.findMany({
+      where: { casinoId, locale: { in: contentLocales(locale) } },
+      select: { locale: true, reviewBody: true },
     }),
     prisma.userReview.aggregate({
       where: { casinoId, status: ReviewStatus.published },
@@ -44,7 +46,7 @@ export async function getCasinoReviewSummary(
   const average = ratingSummary._avg.rating;
 
   return {
-    editorialSummary: translation?.reviewBody || null,
+    editorialSummary: pickTranslated(translations, 'reviewBody', locale) || null,
     userRatingAvg:
       userRatingCount === 0 || average == null ? null : Math.round(average * 10) / 10,
     userRatingCount,

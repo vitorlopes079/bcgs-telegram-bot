@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { Bot } from 'grammy';
 import { registerHandlers, setBotCommands } from './app';
 import type { BotContext } from './context';
+import { resolveLocale } from './middleware/locale';
 import { rateLimit, stopRateLimitCleanup } from './middleware/ratelimit';
 import { prisma } from './prisma';
 
@@ -28,6 +29,8 @@ if (!adminChatId) {
 
 const bot = new Bot<BotContext>(token!);
 
+// Before the rate limiter so its group warning is in the user's language.
+bot.use(resolveLocale);
 bot.use(rateLimit);
 registerHandlers(bot);
 

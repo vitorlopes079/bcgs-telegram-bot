@@ -6,7 +6,7 @@ import type { Message } from 'grammy/types';
 import type { BotContext } from '../context';
 import { prisma } from '../prisma';
 import { findCasinos } from '../services/casinos';
-import { getLocale, t, type Locale, type MessageKey } from '../i18n';
+import { DEFAULT_LOCALE, getLocale, isKeyword, isLocale, t, type Locale, type MessageKey } from '../i18n';
 import { countRecentComplaintsByUser } from '../services/complaints';
 
 const CONVERSATION_ID = 'submission';
@@ -40,7 +40,8 @@ const LABELS: Record<ReportType, MessageKey> = {
 
 type SubmissionConversation = Conversation<BotContext, Context>;
 
-type CasinoChoice = { casinoId: string | null; casinoName: string };
+/** casinoName is in the user's language; adminCasinoName is the English name for the admin chat. */
+type CasinoChoice = { casinoId: string | null; casinoName: string; adminCasinoName: string };
 
 export type SubmissionData = {
   type: ReportType;
@@ -88,8 +89,8 @@ async function askYesNo(
   await ctx.reply(prompt);
   while (true) {
     const answer = (await waitForText(conversation, label, locale)).toLowerCase();
-    if (answer === 'yes' || answer === 'y') return true;
-    if (answer === 'no' || answer === 'n') return false;
+    if (isKeyword('yes', answer)) return true;
+    if (isKeyword('no', answer)) return false;
     await ctx.reply(t('complaint.yesNo', {}, locale));
   }
 }
@@ -102,7 +103,7 @@ async function askCasino(
 ): Promise<CasinoChoice> {
   await ctx.reply(t('complaint.askCasino', {}, locale));
   const input = await waitForText(conversation, label, locale);
-  const unlisted: CasinoChoice = { casinoId: null, casinoName: input };
+  const unlisted: CasinoChoice = { casinoId: null, casinoName: input, adminCasinoName: input };
 
   const matches = await conversation.external(() => findCasinos(input, MAX_CASINO_CHOICES, locale));
 
@@ -125,7 +126,9 @@ async function askCasino(
       t('complaint.confirmCasino', { casinoName: strongMatch.name }, locale),
       locale,
     );
-    if (confirmed) return { casinoId: strongMatch.id, casinoName: strongMatch.name };
+    if (confirmed) {
+      return { casinoId: strongMatch.id, casinoName: strongMatch.name, adminCasinoName: strongMatch.englishName };
+    }
     if (matches.length === 1) {
       await ctx.reply(t('complaint.recordCasino', { input }, locale));
       return unlisted;
@@ -139,14 +142,14 @@ async function askCasino(
 
   while (true) {
     const answer = await waitForText(conversation, label, locale);
-    if (answer.toLowerCase() === 'none') {
+    if (isKeyword('none', answer.toLowerCase())) {
       await ctx.reply(t('complaint.recordCasino', { input }, locale));
       return unlisted;
     }
     const choice = Number(answer);
     if (Number.isInteger(choice) && choice >= 1 && choice <= matches.length) {
       const match = matches[choice - 1];
-      return { casinoId: match.id, casinoName: match.name };
+      return { casinoId: match.id, casinoName: match.name, adminCasinoName: match.englishName };
     }
     await ctx.reply(t('complaint.chooseCasinoNumber', { count: matches.length }, locale));
   }
@@ -235,7 +238,7 @@ async function askEvidence(
     const text = message.text?.trim() ?? '';
     if (isCancelCommand(text)) throw new FlowCancelled();
     const answer = text.toLowerCase();
-    if (answer === 'skip' || answer === 'done') return evidence;
+    if (isKeyword('skip', answer) || isKeyword('done', answer)) return evidence;
 
     await next.reply(
       evidence.length > 0
@@ -254,12 +257,12 @@ async function askEmail(
   await ctx.reply(t('complaint.askEmail', {}, locale));
 
   const first = await waitForText(conversation, label, locale);
-  if (first.toLowerCase() === 'skip') return null;
+  if (isKeyword('skip', first.toLowerCase())) return null;
   if (first.includes('@')) return first;
 
   await ctx.reply(t('complaint.invalidEmail', {}, locale));
   const second = await waitForText(conversation, label, locale);
-  return second.toLowerCase() === 'skip' ? null : second;
+  return isKeyword('skip', second.toLowerCase()) ? null : second;
 }
 
 function formatSummary(label: string, data: SubmissionData, casino: CasinoChoice, locale: Locale): string {
@@ -409,21 +412,23 @@ async function runSubmission(
     const adminChatId = process.env.ADMIN_CHAT_ID;
     if (!adminChatId) return;
 
+    // The admin chat always gets English, whatever language the user filed in.
+    const adminLocale = DEFAULT_LOCALE;
     try {
       const notificationType = t(
         type === 'complaint' ? 'complaint.typeComplaint' : 'complaint.typeScamReport',
         {},
-        locale,
+        adminLocale,
       );
       await ctx.api.sendMessage(
         adminChatId,
         t('complaint.adminNotification', {
           caseId: caseId.caseId,
           type: notificationType,
-          casinoName: casino.casinoName ?? data.casinoName ?? '',
+          casinoName: casino.adminCasinoName,
           subject: truncateSubject(data.subject),
-          sender: data.contactName ?? t('complaint.unknownSender', {}, locale),
-        }, locale),
+          sender: data.contactName ?? t('complaint.unknownSender', {}, adminLocale),
+        }, adminLocale),
       );
     } catch {
       console.warn('Admin complaint notification failed.');
@@ -431,8 +436,14 @@ async function runSubmission(
   });
 }
 
-async function submission(conversation: SubmissionConversation, ctx: Context, type: ReportType) {
-  const locale = getLocale(ctx);
+async function submission(
+  conversation: SubmissionConversation,
+  ctx: Context,
+  type: ReportType,
+  requestedLocale: unknown,
+) {
+  // Fixed when the flow starts, so replays and a mid-flow language change can't switch it.
+  const locale = isLocale(requestedLocale) ? requestedLocale : getLocale(ctx);
   try {
     await runSubmission(conversation, ctx, type, locale);
   } catch (error) {
@@ -474,5 +485,5 @@ export async function startComplaintFlow(ctx: BotContext, type: ReportType): Pro
     });
     return;
   }
-  await ctx.conversation.enter(CONVERSATION_ID, type);
+  await ctx.conversation.enter(CONVERSATION_ID, type, locale);
 }

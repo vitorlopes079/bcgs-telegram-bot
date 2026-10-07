@@ -376,6 +376,13 @@ model Complaint {
   @@index([telegramUserId])
 }
 
+model TelegramUserSetting {
+  telegramUserId String   @id
+  language       String   @default("en")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
 model Market {
   id           String              @id @default(cuid())
   code         String              @unique // ISO 3166-1 alpha-2, e.g. "US", "TH", "GB"
