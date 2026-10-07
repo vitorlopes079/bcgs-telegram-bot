@@ -7,6 +7,7 @@ import type { BotContext } from '../context';
 import { prisma } from '../prisma';
 import { findCasinos } from '../services/casinos';
 import { DEFAULT_LOCALE, getLocale, isKeyword, isLocale, t, type Locale, type MessageKey } from '../i18n';
+import { menuActionFor } from '../keyboard';
 import { countRecentComplaintsByUser } from '../services/complaints';
 
 const CONVERSATION_ID = 'submission';
@@ -69,7 +70,7 @@ async function waitForText(conversation: SubmissionConversation, label: string, 
     const text = next.message.text.trim();
 
     if (isCancelCommand(text)) throw new FlowCancelled();
-    if (text.startsWith('/')) {
+    if (text.startsWith('/') || menuActionFor(text)) {
       await next.reply(
         t('complaint.middleOfFlow', { label }, locale),
       );
@@ -237,6 +238,10 @@ async function askEvidence(
 
     const text = message.text?.trim() ?? '';
     if (isCancelCommand(text)) throw new FlowCancelled();
+    if (menuActionFor(text)) {
+      await next.reply(t('complaint.middleOfFlow', { label }, locale));
+      continue;
+    }
     const answer = text.toLowerCase();
     if (isKeyword('skip', answer) || isKeyword('done', answer)) return evidence;
 

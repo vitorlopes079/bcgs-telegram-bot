@@ -1,0 +1,232 @@
+// Shared offline test harness: Prisma and Telegram are both stubbed, so nothing reaches the database or Telegram.
+import type { Update } from 'grammy/types';
+
+// Set before the Prisma client loads, so even an un-stubbed query could never reach a real database.
+process.env.DATABASE_URL = 'postgresql://offline:offline@127.0.0.1:9/offline';
+process.env.ADMIN_CHAT_ID = '-1009999';
+
+type Row = Record<string, unknown>;
+export type Call = { method: string; payload: any };
+export type User = { id: number; language_code?: string };
+
+const failures: string[] = [];
+export function check(name: string, condition: boolean, detail?: unknown): void {
+  if (condition) {
+    console.log(`  ✅ ${name}`);
+  } else {
+    console.log(`  ❌ ${name}${detail === undefined ? '' : `\n     ${JSON.stringify(detail)}`}`);
+    failures.push(name);
+  }
+}
+export function finish(): never {
+  console.log(`\n${failures.length === 0 ? 'ALL PASSED' : `${failures.length} FAILED:\n - ${failures.join('\n - ')}`}`);
+  process.exit(failures.length === 0 ? 0 : 1);
+}
+
+// ---------- Fixtures ----------
+const casinos = [
+  {
+    id: 'c-stake', slug: 'stake', overallRating: 4.6, status: 'published',
+    // No Thai translation: Thai users must see the English name.
+    translations: [{ locale: 'en', name: 'Stake' }, { locale: 'zh', name: 'Stake 娱乐场' }],
+    licenses: [{
+      licenseNumber: 'OGL/2024/001',
+      license: { translations: [{ locale: 'en', name: 'Curaçao' }, { locale: 'zh', name: '库拉索' }] },
+    }],
+  },
+  {
+    id: 'c-roobet', slug: 'roobet', overallRating: 4.2, status: 'published',
+    // Empty Chinese name: Chinese users must see the English name.
+    translations: [{ locale: 'en', name: 'Roobet' }, { locale: 'zh', name: '' }, { locale: 'th', name: 'รูเบท' }],
+    licenses: [],
+  },
+];
+const casinoTranslations = [
+  { casinoId: 'c-stake', locale: 'en', reviewBody: 'English editorial review of Stake.' },
+  { casinoId: 'c-stake', locale: 'zh', reviewBody: '   ' },
+  { casinoId: 'c-stake', locale: 'th', reviewBody: 'รีวิวภาษาไทยของ Stake' },
+];
+const category = {
+  id: 'cat-crypto', slug: 'crypto', status: 'published',
+  translations: [{ locale: 'en', name: 'Crypto Casinos' }, { locale: 'zh', name: '加密货币娱乐场' }],
+};
+
+// ---------- Prisma stub ----------
+export const settings = new Map<string, string>();
+export const db = { findUnique: 0, upserts: [] as Row[], complaints: [] as Row[] };
+
+function localesFrom(select: any): string[] | null {
+  return select?.translations?.where?.locale?.in ?? null;
+}
+function filterTranslations<T extends { locale: string }>(rows: T[], locales: string[] | null): T[] {
+  return locales ? rows.filter((row) => locales.includes(row.locale)) : rows;
+}
+function shapeCasino(casino: (typeof casinos)[number], select: any): Row {
+  const out: Row = {};
+  if (select.id) out.id = casino.id;
+  if (select.slug) out.slug = casino.slug;
+  if (select.overallRating) out.overallRating = casino.overallRating;
+  if (select.translations) out.translations = filterTranslations(casino.translations, localesFrom(select));
+  if (select.licenses) {
+    const licenseSelect = select.licenses.select.license.select;
+    out.licenses = casino.licenses.map((l) => ({
+      licenseNumber: l.licenseNumber,
+      license: { translations: filterTranslations(l.license.translations, localesFrom(licenseSelect)) },
+    }));
+  }
+  return out;
+}
+const byRating = [...casinos].sort((a, b) => b.overallRating - a.overallRating);
+
+const prismaStub: Record<string, Row> = {
+  telegramUserSetting: {
+    findUnique: async ({ where }: any) => {
+      db.findUnique += 1;
+      const language = settings.get(where.telegramUserId);
+      return language ? { language } : null;
+    },
+    upsert: async (args: any) => {
+      db.upserts.push(args);
+      settings.set(args.where.telegramUserId, args.create.language);
+      return { telegramUserId: args.where.telegramUserId };
+    },
+  },
+  casino: {
+    findMany: async ({ select }: any) => byRating.map((casino) => shapeCasino(casino, select)),
+  },
+  casinoCategory: {
+    findMany: async ({ where, select }: any) =>
+      where.categoryId === category.id ? byRating.map((casino) => ({ casino: shapeCasino(casino, select.casino.select) })) : [],
+  },
+  category: {
+    findFirst: async ({ where, select }: any) => {
+      const input = String(where.OR[0].slug.equals).toLowerCase();
+      const nameLocale = where.OR[1].translations.some.locale;
+      const matches = category.slug === input ||
+        category.translations.some((row) => row.locale === nameLocale && row.name.toLowerCase() === input);
+      return matches
+        ? { id: category.id, slug: category.slug, translations: filterTranslations(category.translations, localesFrom(select)) }
+        : null;
+    },
+  },
+  casinoTranslation: {
+    findMany: async ({ where }: any) =>
+      casinoTranslations.filter((row) => row.casinoId === where.casinoId && where.locale.in.includes(row.locale)),
+  },
+  userReview: {
+    aggregate: async () => ({ _avg: { rating: null }, _count: 0 }),
+    findMany: async () => [],
+  },
+  complaint: {
+    count: async () => 0,
+    create: async ({ data }: any) => {
+      db.complaints.push(data);
+      return { caseId: data.caseId };
+    },
+  },
+  siteSetting: { findMany: async () => [] },
+};
+
+// ---------- Telegram stub ----------
+export const calls: Call[] = [];
+let messageId = 5000;
+const fakeFetch = (async (url: string | URL, init?: RequestInit) => {
+  const method = String(url).split('/').pop() ?? '';
+  const payload = init?.body ? JSON.parse(String(init.body)) : {};
+  calls.push({ method, payload });
+  const returnsTrue = ['answerCallbackQuery', 'setMyCommands', 'setChatMenuButton'].includes(method);
+  return new Response(JSON.stringify({
+    ok: true,
+    result: returnsTrue
+      ? true
+      : { message_id: messageId++, date: 0, chat: { id: payload.chat_id, type: 'private' }, text: payload.text },
+  }));
+}) as typeof fetch;
+
+let updateId = 1;
+
+function fromOf(user: User) {
+  return { id: user.id, is_bot: false, first_name: 'Tester', ...(user.language_code ? { language_code: user.language_code } : {}) };
+}
+function chatOf(user: User, chatType: string) {
+  return chatType === 'private'
+    ? { id: user.id, type: 'private', first_name: 'Tester' }
+    : { id: -100555, type: chatType, title: 'Group' };
+}
+export function textUpdate(user: User, text: string, chatType = 'private'): Update {
+  const command = text.match(/^\/\S+/);
+  return {
+    update_id: updateId++,
+    message: {
+      message_id: updateId, date: Math.floor(Date.now() / 1000),
+      chat: chatOf(user, chatType), from: fromOf(user), text,
+      ...(command ? { entities: [{ type: 'bot_command', offset: 0, length: command[0].length }] } : {}),
+    },
+  } as unknown as Update;
+}
+export function tapUpdate(user: User, data: string): Update {
+  return {
+    update_id: updateId++,
+    callback_query: {
+      id: `cb${updateId}`, chat_instance: 'ci', data, from: fromOf(user),
+      message: { message_id: 4242, date: 0, chat: chatOf(user, 'private'), text: 'selector' },
+    },
+  } as unknown as Update;
+}
+
+let clockOffset = 0;
+const realNow = Date.now.bind(Date);
+Date.now = () => realNow() + clockOffset;
+export function advanceMinutes(minutes: number): void {
+  clockOffset += minutes * 60 * 1000;
+}
+
+/** Texts sent to the user (admin-chat messages excluded). */
+export function texts(from = 0): string[] {
+  return calls.slice(from)
+    .filter((c) => (c.method === 'sendMessage' || c.method === 'editMessageText') && String(c.payload.chat_id) !== process.env.ADMIN_CHAT_ID)
+    .map((c) => c.payload.text as string);
+}
+/** The last inline keyboard sent since `from`. */
+export function lastKeyboard(from = 0): any[] | undefined {
+  return calls.slice(from).reverse().find((c) => c.payload.reply_markup?.inline_keyboard)?.payload.reply_markup.inline_keyboard;
+}
+/** Every reply (bottom) keyboard markup sent since `from`. */
+export function replyKeyboards(from = 0): any[] {
+  return calls.slice(from).map((c) => c.payload.reply_markup).filter((markup) => markup?.keyboard);
+}
+
+/** Installs the stubs and returns a bot wired exactly like src/bot.ts. */
+export async function createOfflineBot() {
+  const { prisma } = await import('../src/prisma');
+  for (const [name, impl] of Object.entries(prismaStub)) {
+    Object.defineProperty(prisma, name, { value: impl, configurable: true });
+  }
+  for (const name of ['$connect', '$queryRaw', '$executeRaw', '$transaction']) {
+    Object.defineProperty(prisma, name, { value: () => { throw new Error(`offline test: ${name} is not allowed`); }, configurable: true });
+  }
+  if ((prisma as any).casino.findMany !== prismaStub.casino.findMany) throw new Error('Prisma stub was not installed');
+
+  const { Bot } = await import('grammy');
+  const { registerHandlers } = await import('../src/app');
+  const { resolveLocale } = await import('../src/middleware/locale');
+  const { rateLimit } = await import('../src/middleware/ratelimit');
+
+  const bot = new Bot<any>('000000:OFFLINE', {
+    botInfo: {
+      id: 1, is_bot: true, first_name: 'Offline', username: 'offline_bot', can_join_groups: true,
+      can_read_all_group_messages: false, supports_inline_queries: false, can_connect_to_business: false, has_main_web_app: false,
+    } as never,
+    client: { fetch: fakeFetch },
+  });
+  bot.use(resolveLocale);
+  bot.use(rateLimit);
+  registerHandlers(bot);
+
+  const send = async (update: Update) => {
+    const start = calls.length;
+    await bot.handleUpdate(update);
+    return start;
+  };
+  return { bot, send };
+}

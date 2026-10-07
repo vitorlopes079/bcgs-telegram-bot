@@ -14,14 +14,16 @@ export async function buildLinksReply(locale: Locale = 'en'): Promise<string> {
   return lines.join('\n');
 }
 
+export async function replyLinks(ctx: BotContext): Promise<void> {
+  try {
+    const reply = await buildLinksReply(getLocale(ctx));
+    await ctx.reply(reply, { link_preview_options: { is_disabled: true } });
+  } catch (error) {
+    console.error('/links failed.');
+    await ctx.reply(t('common.genericError', {}, getLocale(ctx)));
+  }
+}
+
 export function registerLinksCommand(bot: Bot<BotContext>) {
-  bot.command('links', async (ctx) => {
-    try {
-      const reply = await buildLinksReply(getLocale(ctx));
-      await ctx.reply(reply, { link_preview_options: { is_disabled: true } });
-    } catch (error) {
-      console.error('/links failed.');
-      await ctx.reply(t('common.genericError', {}, getLocale(ctx)));
-    }
-  });
+  bot.command('links', replyLinks);
 }

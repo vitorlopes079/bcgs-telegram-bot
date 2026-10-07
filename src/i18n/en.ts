@@ -7,7 +7,7 @@ const en = {
     welcome: 'Welcome to BC.GS!',
   },
   help: {
-    private: 'Welcome to BC.GS! Find casino information, ratings, and reviews.\n\n/search — Search casinos by name, domain, or license.\n/review — Read a casino’s ratings and reviews.\n/rankings — See the top casinos overall or by category.\n/links — Get our website and community links.\n/complaint — Submit a complaint.\n/report — Report a scam.\n/language — Change the bot language.\n/help — Show this command list.',
+    private: 'Welcome to BC.GS! Find casino information, ratings, and reviews.\n\n/menu — Show the main menu buttons.\n/search — Search casinos by name, domain, or license.\n/review — Read a casino’s ratings and reviews.\n/rankings — See the top casinos overall or by category.\n/links — Get our website and community links.\n/complaint — Submit a complaint.\n/report — Report a scam.\n/language — Change the bot language.\n/help — Show this command list.',
     group: 'Welcome to BC.GS! Find casino information, ratings, and reviews.\n\n/search — Search casinos by name, domain, or license.\n/review — Read a casino’s ratings and reviews.\n/rankings — See the top casinos overall or by category.\n/links — Get our website and community links.\n/complaint — Submit a complaint (private chat only).\n/report — Report a scam (private chat only).\n/language — Change the bot language (private chat only).\n/help — Show this command list.',
   },
   language: {
@@ -17,7 +17,21 @@ const en = {
     saved: 'Language set to English.',
     privateOnly: 'Please send me a direct message to change your language.',
   },
+  keyboard: {
+    search: 'Search',
+    review: 'Reviews',
+    rankings: 'Rankings',
+    complaint: 'Complaint',
+    report: 'Report',
+    links: 'Links',
+    language: 'Language',
+    help: 'Help',
+    ready: 'Choose an option below.',
+    askSearch: 'Type the casino name, domain, or license to search.',
+    askReview: 'Type the casino name.',
+  },
   menu: {
+    menu: 'Show the main menu buttons.',
     start: 'Show the welcome message and command list.',
     help: 'Show the command list.',
     search: 'Search casinos by name, domain, or license.',

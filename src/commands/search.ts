@@ -27,21 +27,21 @@ export async function buildSearchReply(query: string, locale: Locale = 'en'): Pr
   return t('search.results', { query, entries: entries.join('\n\n') }, locale);
 }
 
+export async function replySearch(ctx: BotContext, query: string): Promise<void> {
+  if (!query) {
+    await ctx.reply(t('search.usage', {}, getLocale(ctx)));
+    return;
+  }
+
+  try {
+    const reply = await buildSearchReply(query, getLocale(ctx));
+    await ctx.reply(reply, { link_preview_options: { is_disabled: true } });
+  } catch (error) {
+    console.error('/search failed.');
+    await ctx.reply(t('common.genericError', {}, getLocale(ctx)));
+  }
+}
+
 export function registerSearchCommand(bot: Bot<BotContext>) {
-  bot.command('search', async (ctx) => {
-    const query = ctx.match.trim();
-
-    if (!query) {
-      await ctx.reply(t('search.usage', {}, getLocale(ctx)));
-      return;
-    }
-
-    try {
-      const reply = await buildSearchReply(query, getLocale(ctx));
-      await ctx.reply(reply, { link_preview_options: { is_disabled: true } });
-    } catch (error) {
-      console.error('/search failed.');
-      await ctx.reply(t('common.genericError', {}, getLocale(ctx)));
-    }
-  });
+  bot.command('search', (ctx) => replySearch(ctx, ctx.match.trim()));
 }

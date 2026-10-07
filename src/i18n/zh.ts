@@ -11,7 +11,7 @@ const zh: Messages = {
     welcome: '欢迎使用 BC.GS！',
   },
   help: {
-    private: '欢迎使用 BC.GS！在这里查找娱乐场信息、评分和评测。\n\n/search — 按名称、域名或牌照搜索娱乐场。\n/review — 查看娱乐场的评分和评测。\n/rankings — 查看综合或分类排名靠前的娱乐场。\n/links — 获取我们的网站和社区链接。\n/complaint — 提交投诉。\n/report — 举报诈骗。\n/language — 更改机器人语言。\n/help — 显示此命令列表。',
+    private: '欢迎使用 BC.GS！在这里查找娱乐场信息、评分和评测。\n\n/menu — 显示主菜单按钮。\n/search — 按名称、域名或牌照搜索娱乐场。\n/review — 查看娱乐场的评分和评测。\n/rankings — 查看综合或分类排名靠前的娱乐场。\n/links — 获取我们的网站和社区链接。\n/complaint — 提交投诉。\n/report — 举报诈骗。\n/language — 更改机器人语言。\n/help — 显示此命令列表。',
     group: '欢迎使用 BC.GS！在这里查找娱乐场信息、评分和评测。\n\n/search — 按名称、域名或牌照搜索娱乐场。\n/review — 查看娱乐场的评分和评测。\n/rankings — 查看综合或分类排名靠前的娱乐场。\n/links — 获取我们的网站和社区链接。\n/complaint — 提交投诉（仅限私聊）。\n/report — 举报诈骗（仅限私聊）。\n/language — 更改机器人语言（仅限私聊）。\n/help — 显示此命令列表。',
   },
   language: {
@@ -20,7 +20,21 @@ const zh: Messages = {
     saved: '语言已设置为中文。',
     privateOnly: '请私信我来更改语言。',
   },
+  keyboard: {
+    search: '搜索',
+    review: '评测',
+    rankings: '排名',
+    complaint: '投诉',
+    report: '举报',
+    links: '链接',
+    language: '语言',
+    help: '帮助',
+    ready: '请在下方选择一个选项。',
+    askSearch: '请输入要搜索的娱乐场名称、域名或牌照。',
+    askReview: '请输入娱乐场名称。',
+  },
   menu: {
+    menu: '显示主菜单按钮。',
     start: '显示欢迎信息和命令列表。',
     help: '显示命令列表。',
     search: '按名称、域名或牌照搜索娱乐场。',

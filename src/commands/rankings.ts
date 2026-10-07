@@ -47,14 +47,16 @@ export async function buildRankingsReply(input: string, locale: Locale = 'en'): 
   return input ? categoryRankings(input, locale) : overallRankings(locale);
 }
 
+export async function replyRankings(ctx: BotContext, input: string): Promise<void> {
+  try {
+    const reply = await buildRankingsReply(input, getLocale(ctx));
+    await ctx.reply(reply, { link_preview_options: { is_disabled: true } });
+  } catch (error) {
+    console.error('/rankings failed.');
+    await ctx.reply(t('common.genericError', {}, getLocale(ctx)));
+  }
+}
+
 export function registerRankingsCommand(bot: Bot<BotContext>) {
-  bot.command('rankings', async (ctx) => {
-    try {
-      const reply = await buildRankingsReply(ctx.match.trim(), getLocale(ctx));
-      await ctx.reply(reply, { link_preview_options: { is_disabled: true } });
-    } catch (error) {
-      console.error('/rankings failed.');
-      await ctx.reply(t('common.genericError', {}, getLocale(ctx)));
-    }
-  });
+  bot.command('rankings', (ctx) => replyRankings(ctx, ctx.match.trim()));
 }

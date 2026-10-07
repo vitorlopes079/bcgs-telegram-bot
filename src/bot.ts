@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { Bot } from 'grammy';
-import { registerHandlers, setBotCommands } from './app';
+import { registerHandlers } from './app';
+import { setBotCommands } from './command-menu';
 import type { BotContext } from './context';
 import { resolveLocale } from './middleware/locale';
 import { rateLimit, stopRateLimitCleanup } from './middleware/ratelimit';
