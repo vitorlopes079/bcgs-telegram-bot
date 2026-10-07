@@ -100,9 +100,9 @@ import {
   check('th rankings: Thai name where present, English otherwise', (texts(at)[0]?.includes('1. Stake (4.6/5)') &&
     texts(at)[0]?.includes('2. รูเบท (4.2/5)')) ?? false, texts(at)[0]);
   at = await send(textUpdate(thaiPhone, '/rankings crypto'));
-  check('th category: missing Thai category name -> English', texts(at)[0]?.startsWith('คาสิโน 2 อันดับแรกใน Crypto Casinos:') ?? false, texts(at)[0]);
+  check('th category: missing Thai category name -> English', texts(at)[0]?.startsWith('คาสิโน 12 อันดับแรกใน Crypto Casinos:') ?? false, texts(at)[0]);
   at = await send(textUpdate(returning, '/rankings Crypto Casinos'));
-  check('zh category: matched by English name, shown in Chinese', texts(at)[0]?.startsWith('加密货币娱乐场排名前 2 的娱乐场：') ?? false, texts(at)[0]);
+  check('zh category: matched by English name, shown in Chinese', texts(at)[0]?.startsWith('加密货币娱乐场排名前 12 的娱乐场：') ?? false, texts(at)[0]);
   at = await send(textUpdate(returning, '/search stkae'));
   check('zh: typo still matches (matching unchanged)', texts(at)[0]?.includes('1. Stake 娱乐场') ?? false, texts(at)[0]);
   at = await send(textUpdate(returning, '/search zzzzqq'));

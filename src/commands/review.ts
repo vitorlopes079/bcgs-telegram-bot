@@ -1,6 +1,8 @@
 import type { Bot } from 'grammy';
+import type { NavAction } from '../callback-data';
 import type { BotContext } from '../context';
-import { searchCasinos, type CasinoMatch } from '../services/casinos';
+import { casinoListKeyboard, reviewKeyboard, sendScreen, type Screen } from '../inline-keyboards';
+import { getCasinoBySlug, searchCasinos, type CasinoMatch } from '../services/casinos';
 import { getCasinoReviewSummary } from '../services/reviews';
 import { casinoUrl, formatRating } from '../site';
 import { getLocale, t, type Locale } from '../i18n';
@@ -55,6 +57,53 @@ function renderReviewReply(
   return `${shortened}\n${link}`;
 }
 
+async function casinoReviewScreen(
+  ctx: BotContext,
+  casino: CasinoMatch,
+  locale: Locale,
+  back?: NavAction,
+): Promise<Screen> {
+  const summary = await getCasinoReviewSummary(casino.id, locale);
+  return { text: renderReviewReply(casino, summary, locale), keyboard: reviewKeyboard(ctx, casino.slug, locale, back) };
+}
+
+export async function buildReviewScreen(ctx: BotContext, query: string, locale: Locale): Promise<Screen> {
+  const { matches: casinos, suggestions } = await searchCasinos(query, 5, locale);
+  if (casinos.length === 0) {
+    return {
+      text: suggestions.length > 0
+        ? t('review.didYouMean', { names: suggestions.join('\n') }, locale)
+        : t('review.noResults', {}, locale),
+    };
+  }
+
+  const exactMatch = casinos.find((casino) => casino.matchType === 'exact');
+
+  if (casinos.length > 1 && !exactMatch) {
+    return {
+      text: t('review.chooseSpecific', { names: casinos.map((casino) => casino.name).join('\n') }, locale),
+      keyboard: casinoListKeyboard(
+        casinos.map((casino) => ({ slug: casino.slug, label: casino.name })),
+        (slug) => ({ kind: 'reviewOpen', slug }),
+      ),
+      replyToQuery: true,
+    };
+  }
+
+  return casinoReviewScreen(ctx, exactMatch ?? casinos[0], locale);
+}
+
+/** A casino review opened from a button, with Back to where it came from; null if the casino is gone. */
+export async function buildReviewScreenBySlug(
+  ctx: BotContext,
+  slug: string,
+  locale: Locale,
+  back: NavAction,
+): Promise<Screen | null> {
+  const casino = await getCasinoBySlug(slug, locale);
+  return casino ? casinoReviewScreen(ctx, casino, locale, back) : null;
+}
+
 export async function replyReview(ctx: BotContext, query: string): Promise<void> {
   const locale = getLocale(ctx);
 
@@ -64,28 +113,7 @@ export async function replyReview(ctx: BotContext, query: string): Promise<void>
   }
 
   try {
-    const { matches: casinos, suggestions } = await searchCasinos(query, 5, locale);
-    if (casinos.length === 0) {
-      await ctx.reply(
-        suggestions.length > 0
-          ? t('review.didYouMean', { names: suggestions.join('\n') }, locale)
-          : t('review.noResults', {}, locale),
-      );
-      return;
-    }
-
-    const exactMatch = casinos.find((casino) => casino.matchType === 'exact');
-
-    if (casinos.length > 1 && !exactMatch) {
-      await ctx.reply(t('review.chooseSpecific', { names: casinos.map((casino) => casino.name).join('\n') }, locale));
-      return;
-    }
-
-    const casino = exactMatch ?? casinos[0];
-    const summary = await getCasinoReviewSummary(casino.id, locale);
-    await ctx.reply(renderReviewReply(casino, summary, locale), {
-      link_preview_options: { is_disabled: true },
-    });
+    await sendScreen(ctx, await buildReviewScreen(ctx, query, locale));
   } catch (error) {
     console.error('/review failed.');
     await ctx.reply(t('common.genericError', {}, locale));

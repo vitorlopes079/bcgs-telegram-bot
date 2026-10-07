@@ -30,6 +30,18 @@ const en = {
     askSearch: 'Type the casino name, domain, or license to search.',
     askReview: 'Type the casino name.',
   },
+  buttons: {
+    viewReview: 'View Full Review',
+    visitWebsite: 'Visit Website',
+    submitComplaint: 'Submit Complaint',
+    back: 'Back',
+    previous: 'Previous',
+    next: 'Next',
+    website: 'Website',
+    community: 'Official Community',
+    discord: 'Discord',
+    unavailable: 'This is no longer available.',
+  },
   menu: {
     menu: 'Show the main menu buttons.',
     start: 'Show the welcome message and command list.',

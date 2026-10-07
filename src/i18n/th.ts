@@ -32,6 +32,18 @@ const th: Messages = {
     askSearch: 'พิมพ์ชื่อ โดเมน หรือใบอนุญาตของคาสิโนที่ต้องการค้นหา',
     askReview: 'พิมพ์ชื่อคาสิโน',
   },
+  buttons: {
+    viewReview: 'อ่านรีวิวฉบับเต็ม',
+    visitWebsite: 'เยี่ยมชมเว็บไซต์',
+    submitComplaint: 'ส่งข้อร้องเรียน',
+    back: 'ย้อนกลับ',
+    previous: 'ก่อนหน้า',
+    next: 'ถัดไป',
+    website: 'เว็บไซต์',
+    community: 'ชุมชนทางการ',
+    discord: 'Discord',
+    unavailable: 'รายการนี้ไม่พร้อมใช้งานแล้ว',
+  },
   menu: {
     menu: 'แสดงปุ่มเมนูหลัก',
     start: 'แสดงข้อความต้อนรับและรายการคำสั่ง',

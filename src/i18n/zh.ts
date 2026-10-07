@@ -33,6 +33,18 @@ const zh: Messages = {
     askSearch: '请输入要搜索的娱乐场名称、域名或牌照。',
     askReview: '请输入娱乐场名称。',
   },
+  buttons: {
+    viewReview: '查看完整评测',
+    visitWebsite: '访问网站',
+    submitComplaint: '提交投诉',
+    back: '返回',
+    previous: '上一页',
+    next: '下一页',
+    website: '网站',
+    community: '官方社区',
+    discord: 'Discord',
+    unavailable: '此内容已不可用。',
+  },
   menu: {
     menu: '显示主菜单按钮。',
     start: '显示欢迎信息和命令列表。',

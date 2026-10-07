@@ -1,4 +1,5 @@
 import { InlineKeyboard, type Bot } from 'grammy';
+import { encodeLanguage, LANGUAGE_CALLBACK_PATTERN } from '../callback-data';
 import { syncChatCommands } from '../command-menu';
 import type { BotContext } from '../context';
 import { getLocale, isLocale, LOCALES, t } from '../i18n';
@@ -10,12 +11,10 @@ import { buildHelpReply } from './help';
 /** What to do after the user picks a language from a /start selector. */
 export type AfterLanguageChoice = 'start' | 'complaint' | 'report';
 
-const CALLBACK_PATTERN = /^lang:([a-z]+)(?::(start|complaint|report))?$/;
-
 function languageKeyboard(after?: AfterLanguageChoice): InlineKeyboard {
   const keyboard = new InlineKeyboard();
   for (const locale of LOCALES) {
-    keyboard.text(t('language.name', {}, locale), after ? `lang:${locale}:${after}` : `lang:${locale}`);
+    keyboard.text(t('language.name', {}, locale), encodeLanguage(locale, after));
   }
   return keyboard;
 }
@@ -39,7 +38,7 @@ export function registerLanguageCommand(bot: Bot<BotContext>) {
     await showLanguageSelector(ctx);
   });
 
-  bot.callbackQuery(CALLBACK_PATTERN, async (ctx) => {
+  bot.callbackQuery(LANGUAGE_CALLBACK_PATTERN, async (ctx) => {
     const [, locale, after] = ctx.match;
     if (!isLocale(locale) || ctx.chat?.type !== 'private') {
       await ctx.answerCallbackQuery();

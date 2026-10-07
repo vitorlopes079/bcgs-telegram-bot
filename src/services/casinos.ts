@@ -100,6 +100,16 @@ async function getSearchIndex(locale: Locale): Promise<CacheEntry> {
   return load;
 }
 
+function localize(match: CasinoMatch, index: CacheEntry): LocalizedCasinoMatch {
+  const display = index.display.get(match.id);
+  return {
+    ...match,
+    englishName: match.name,
+    name: display?.name ?? match.name,
+    licenses: display?.licenses ?? match.licenses,
+  };
+}
+
 /** Matches plus "did you mean" names (only filled when nothing matched). */
 export async function searchCasinos(
   query: string,
@@ -108,18 +118,16 @@ export async function searchCasinos(
 ): Promise<LocalizedSearchResult> {
   const index = await getSearchIndex(locale);
   const { matches, suggestions } = matchCasinos(index.prepared, query, limit);
-  return {
-    matches: matches.map((match) => {
-      const display = index.display.get(match.id);
-      return {
-        ...match,
-        englishName: match.name,
-        name: display?.name ?? match.name,
-        licenses: display?.licenses ?? match.licenses,
-      };
-    }),
-    suggestions,
-  };
+  return { matches: matches.map((match) => localize(match, index)), suggestions };
+}
+
+/** A published casino by slug (for inline buttons), or null if it's unpublished or gone. */
+export async function getCasinoBySlug(slug: string, locale: Locale = LOCALE): Promise<LocalizedCasinoMatch | null> {
+  const index = await getSearchIndex(locale);
+  const found = index.prepared.find((item) => item.entry.slug === slug)?.entry;
+  if (!found) return null;
+  const { licenseNumbers: _licenseNumbers, ...entry } = found;
+  return localize({ ...entry, matchType: 'exact' }, index);
 }
 
 export async function findCasinos(

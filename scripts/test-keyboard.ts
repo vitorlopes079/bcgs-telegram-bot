@@ -112,7 +112,7 @@ import {
   check('plain text with nothing pending still gets no reply', (await run(user, 'hello')).length === 0);
 
   console.log('\n== Labels recognized in every language ==');
-  check('Thai Rankings label, English user -> English rankings', (await run(user, '🏆 อันดับ'))[0]?.startsWith('Top 2 casinos overall:') ?? false);
+  check('Thai Rankings label, English user -> English rankings', (await run(user, '🏆 อันดับ'))[0]?.startsWith('Top 12 casinos overall:') ?? false);
   check('Chinese Reviews label, English user -> English prompt', (await run(user, '⭐ 评测'))[0] === en.keyboard.askReview);
   check('...and the review still runs', (await run(user, 'stake'))[0]?.startsWith('Stake\nOverall rating: 4.6/5') ?? false);
   check('English Help label, Thai user -> Thai help', (await run(thai, '❓ Help'))[0] === th.help.private);

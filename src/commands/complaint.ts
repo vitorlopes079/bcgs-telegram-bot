@@ -62,10 +62,19 @@ function isCancelCommand(text: string): boolean {
   return /^\/cancel(@\S+)?(\s|$)/i.test(text);
 }
 
+/** An inline button tapped mid-flow is answered and pointed back at the flow; it never counts as an answer. */
+async function rejectButtonTap(ctx: Context, label: string, locale: Locale): Promise<void> {
+  await ctx.answerCallbackQuery();
+  await ctx.reply(t('complaint.middleOfFlow', { label }, locale));
+}
+
 async function waitForText(conversation: SubmissionConversation, label: string, locale: Locale): Promise<string> {
   while (true) {
     const next = await conversation.waitFor('message:text', {
-      otherwise: (ctx) => ctx.reply(t('complaint.replyTextOrCancel', {}, locale)),
+      otherwise: (ctx) =>
+        ctx.callbackQuery
+          ? rejectButtonTap(ctx, label, locale)
+          : ctx.reply(t('complaint.replyTextOrCancel', {}, locale)),
     });
     const text = next.message.text.trim();
 
@@ -213,7 +222,9 @@ async function askEvidence(
   const evidence: string[] = [];
 
   while (true) {
-    const next = await conversation.waitFor('message');
+    const next = await conversation.waitFor('message', {
+      otherwise: (ctx) => (ctx.callbackQuery ? rejectButtonTap(ctx, label, locale) : undefined),
+    });
     const message = next.message;
     const attachment = checkAttachment(message);
 

@@ -1,30 +1,54 @@
 import type { Bot } from 'grammy';
 import type { BotContext } from '../context';
-import { searchCasinos } from '../services/casinos';
+import { casinoCardKeyboard, casinoListKeyboard, sendScreen, type Screen } from '../inline-keyboards';
+import { getCasinoBySlug, searchCasinos, type LocalizedCasinoMatch } from '../services/casinos';
 import { casinoUrl, formatRating } from '../site';
 import { getLocale, t, type Locale } from '../i18n';
 
-export async function buildSearchReply(query: string, locale: Locale = 'en'): Promise<string> {
+function formatEntry(casino: LocalizedCasinoMatch, heading: string, locale: Locale): string {
+  return [
+    heading,
+    t('search.rating', { rating: formatRating(casino.overallRating, locale) }, locale),
+    t('search.license', {
+      licenses: casino.licenses.join(', ') || t('search.noLicenses', {}, locale),
+    }, locale),
+    casinoUrl(casino.slug, locale),
+  ].join('\n');
+}
+
+export async function buildSearchScreen(ctx: BotContext, query: string, locale: Locale): Promise<Screen> {
   const { matches: casinos, suggestions } = await searchCasinos(query, undefined, locale);
 
   if (casinos.length === 0) {
-    return suggestions.length > 0
-      ? t('search.didYouMean', { query, names: suggestions.join('\n') }, locale)
-      : t('search.noResults', { query }, locale);
+    return {
+      text: suggestions.length > 0
+        ? t('search.didYouMean', { query, names: suggestions.join('\n') }, locale)
+        : t('search.noResults', { query }, locale),
+    };
   }
 
-  const entries = casinos.map((casino, index) =>
-    [
-      `${index + 1}. ${casino.name}`,
-      t('search.rating', { rating: formatRating(casino.overallRating, locale) }, locale),
-      t('search.license', {
-        licenses: casino.licenses.join(', ') || t('search.noLicenses', {}, locale),
-      }, locale),
-      casinoUrl(casino.slug, locale),
-    ].join('\n'),
-  );
+  const entries = casinos.map((casino, index) => formatEntry(casino, `${index + 1}. ${casino.name}`, locale));
+  const text = t('search.results', { query, entries: entries.join('\n\n') }, locale);
 
-  return t('search.results', { query, entries: entries.join('\n\n') }, locale);
+  if (casinos.length === 1) return { text, keyboard: casinoCardKeyboard(ctx, casinos[0].slug, locale) };
+  return {
+    text,
+    keyboard: casinoListKeyboard(
+      casinos.map((casino) => ({ slug: casino.slug, label: casino.name })),
+      (slug) => ({ kind: 'searchCard', slug }),
+    ),
+    replyToQuery: true,
+  };
+}
+
+/** A casino card opened from a search list, with Back to that list; null if the casino is gone. */
+export async function buildCasinoCardScreen(ctx: BotContext, slug: string, locale: Locale): Promise<Screen | null> {
+  const casino = await getCasinoBySlug(slug, locale);
+  if (!casino) return null;
+  return {
+    text: formatEntry(casino, casino.name, locale),
+    keyboard: casinoCardKeyboard(ctx, casino.slug, locale, { kind: 'searchBack' }),
+  };
 }
 
 export async function replySearch(ctx: BotContext, query: string): Promise<void> {
@@ -34,8 +58,7 @@ export async function replySearch(ctx: BotContext, query: string): Promise<void>
   }
 
   try {
-    const reply = await buildSearchReply(query, getLocale(ctx));
-    await ctx.reply(reply, { link_preview_options: { is_disabled: true } });
+    await sendScreen(ctx, await buildSearchScreen(ctx, query, getLocale(ctx)));
   } catch (error) {
     console.error('/search failed.');
     await ctx.reply(t('common.genericError', {}, getLocale(ctx)));

@@ -3,7 +3,8 @@ import { DEFAULT_LOCALE, type Locale } from '../i18n';
 import { LOCALE } from '../site';
 import { contentLocales, pickTranslated } from './translations';
 
-const MAX_RESULTS = 10;
+// Shown 5 per page with Previous/Next buttons.
+const MAX_RESULTS = 25;
 
 /** name is in the requested language, falling back to English and then the slug. */
 export type RankedCasino = {

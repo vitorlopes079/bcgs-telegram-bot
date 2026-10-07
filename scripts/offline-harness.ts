@@ -40,6 +40,19 @@ const casinos = [
     translations: [{ locale: 'en', name: 'Roobet' }, { locale: 'zh', name: '' }, { locale: 'th', name: 'รูเบท' }],
     licenses: [],
   },
+  // Ten lower-rated casinos so rankings run to three pages (5 + 5 + 2), and "casino" matches several.
+  ...['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India', 'Juliet'].map((word, index) => ({
+    id: `c-${word.toLowerCase()}`,
+    // The last one has a long slug, to check callback data stays under 64 bytes.
+    slug: word === 'Juliet' ? 'the-extremely-long-casino-slug-example-2026' : `${word.toLowerCase()}-casino`,
+    overallRating: Math.round((4.1 - index * 0.1) * 10) / 10,
+    status: 'published',
+    translations: [
+      { locale: 'en', name: `${word} Casino` },
+      ...(word === 'Alpha' ? [{ locale: 'zh', name: '阿尔法娱乐场' }, { locale: 'th', name: 'อัลฟ่าคาสิโน' }] : []),
+    ],
+    licenses: [] as { licenseNumber: string; license: { translations: { locale: string; name: string }[] } }[],
+  })),
 ];
 const casinoTranslations = [
   { casinoId: 'c-stake', locale: 'en', reviewBody: 'English editorial review of Stake.' },
@@ -53,6 +66,8 @@ const category = {
 
 // ---------- Prisma stub ----------
 export const settings = new Map<string, string>();
+/** SiteSetting rows, e.g. telegram_channel_url / discord_channel_url. */
+export const siteSettings = new Map<string, string>();
 export const db = { findUnique: 0, upserts: [] as Row[], complaints: [] as Row[] };
 
 function localesFrom(select: any): string[] | null {
@@ -124,7 +139,10 @@ const prismaStub: Record<string, Row> = {
       return { caseId: data.caseId };
     },
   },
-  siteSetting: { findMany: async () => [] },
+  siteSetting: {
+    findMany: async ({ where }: any) =>
+      [...siteSettings].filter(([key]) => where.key.in.includes(key)).map(([key, value]) => ({ key, value })),
+  },
 };
 
 // ---------- Telegram stub ----------
@@ -164,12 +182,21 @@ export function textUpdate(user: User, text: string, chatType = 'private'): Upda
     },
   } as unknown as Update;
 }
-export function tapUpdate(user: User, data: string): Update {
+type TapOptions = { chatType?: string; replyToText?: string; messageId?: number };
+
+/** A button tap on a bot message; `replyToText` is the user message that bot message replied to. */
+export function tapUpdate(user: User, data: string, options: TapOptions = {}): Update {
+  const chat = chatOf(user, options.chatType ?? 'private');
   return {
     update_id: updateId++,
     callback_query: {
       id: `cb${updateId}`, chat_instance: 'ci', data, from: fromOf(user),
-      message: { message_id: 4242, date: 0, chat: chatOf(user, 'private'), text: 'selector' },
+      message: {
+        message_id: options.messageId ?? 4242, date: 0, chat, text: 'bot message',
+        ...(options.replyToText
+          ? { reply_to_message: { message_id: 4100, date: 0, chat, from: fromOf(user), text: options.replyToText } }
+          : {}),
+      },
     },
   } as unknown as Update;
 }

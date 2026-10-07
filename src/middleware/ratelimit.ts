@@ -20,7 +20,7 @@ export function stopRateLimitCleanup(): void {
 }
 
 export async function rateLimit(ctx: BotContext, next: () => Promise<void>): Promise<void> {
-  if (!ctx.message || ctx.chat?.type === 'private' || !ctx.from) {
+  if (!(ctx.message || ctx.callbackQuery) || ctx.chat?.type === 'private' || !ctx.from) {
     await next();
     return;
   }
@@ -35,6 +35,12 @@ export async function rateLimit(ctx: BotContext, next: () => Promise<void>): Pro
   if (window.count < MAX_GROUP_MESSAGES) {
     window.count += 1;
     await next();
+    return;
+  }
+
+  // Every button tap must be answered, so a limited tap gets the warning as its answer.
+  if (ctx.callbackQuery) {
+    await ctx.answerCallbackQuery({ text: t('rateLimit.slowDown', {}, getLocale(ctx)) });
     return;
   }
 

@@ -8,6 +8,7 @@ import { registerReviewCommand } from './commands/review';
 import { registerSearchCommand } from './commands/search';
 import { syncSavedLanguageCommands } from './command-menu';
 import { registerMainMenu } from './commands/menu';
+import { registerNavigation } from './commands/navigation';
 import type { BotContext } from './context';
 import { getLocale } from './i18n';
 import { replyWithMainMenu } from './keyboard';
@@ -57,6 +58,7 @@ export function registerHandlers(bot: Bot<BotContext>) {
   registerReviewCommand(bot);
   registerLinksCommand(bot);
   registerLanguageCommand(bot);
+  registerNavigation(bot);
 
   bot.catch((err) => {
     if (isTelegramConflict(err.error)) {
