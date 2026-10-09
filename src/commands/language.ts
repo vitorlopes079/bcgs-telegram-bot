@@ -6,7 +6,7 @@ import { getLocale, isLocale, LOCALES, t } from '../i18n';
 import { replyWithMainMenu } from '../keyboard';
 import { saveLocale } from '../services/user-language';
 import { startComplaintFlow } from './complaint';
-import { buildHelpReply } from './help';
+import { sendWelcome } from './welcome';
 
 /** What to do after the user picks a language from a /start selector. */
 export type AfterLanguageChoice = 'start' | 'complaint' | 'report';
@@ -64,7 +64,7 @@ export function registerLanguageCommand(bot: Bot<BotContext>) {
       await ctx.reply(confirmation);
     }
 
-    if (after === 'start') await replyWithMainMenu(ctx, buildHelpReply(false, locale));
+    if (after === 'start') await sendWelcome(ctx, locale);
     else if (after === 'complaint') await startComplaintFlow(ctx, 'complaint', casinoSlug);
     else if (after === 'report') await startComplaintFlow(ctx, 'scam_report');
     else await replyWithMainMenu(ctx, t('keyboard.ready', {}, locale));

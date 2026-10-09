@@ -10,9 +10,9 @@ import { registerSearchCommand } from './commands/search';
 import { syncSavedLanguageCommands } from './command-menu';
 import { registerMainMenu } from './commands/menu';
 import { registerNavigation } from './commands/navigation';
+import { sendWelcome } from './commands/welcome';
 import type { BotContext } from './context';
 import { getLocale } from './i18n';
-import { replyWithMainMenu } from './keyboard';
 
 export function registerHandlers(bot: Bot<BotContext>) {
   // Must come first so an active complaint/report flow receives every message in its chat.
@@ -46,7 +46,7 @@ export function registerHandlers(bot: Bot<BotContext>) {
     }
 
     if (ctx.chat.type === 'private') {
-      await replyWithMainMenu(ctx, buildHelpReply(false, getLocale(ctx)));
+      await sendWelcome(ctx, getLocale(ctx));
       await syncSavedLanguageCommands(ctx);
       return;
     }

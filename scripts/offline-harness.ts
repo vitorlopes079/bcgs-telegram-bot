@@ -83,7 +83,7 @@ const category = {
 export const settings = new Map<string, string>();
 /** SiteSetting rows, e.g. telegram_channel_url / discord_channel_url. */
 export const siteSettings = new Map<string, string>();
-export const db = { findUnique: 0, upserts: [] as Row[], complaints: [] as Row[] };
+export const db = { findUnique: 0, siteSettingQueries: 0, upserts: [] as Row[], complaints: [] as Row[] };
 
 function localesFrom(select: any): string[] | null {
   return select?.translations?.where?.locale?.in ?? null;
@@ -163,18 +163,27 @@ const prismaStub: Record<string, Row> = {
     },
   },
   siteSetting: {
-    findMany: async ({ where }: any) =>
-      [...siteSettings].filter(([key]) => where.key.in.includes(key)).map(([key, value]) => ({ key, value })),
+    findMany: async ({ where }: any) => {
+      db.siteSettingQueries += 1;
+      return [...siteSettings].filter(([key]) => where.key.in.includes(key)).map(([key, value]) => ({ key, value }));
+    },
   },
 };
 
 // ---------- Telegram stub ----------
 export const calls: Call[] = [];
+/** Telegram methods that answer with a 400 error, e.g. to simulate a rejected media URL. */
+export const failingMethods = new Set<string>();
 let messageId = 5000;
 const fakeFetch = (async (url: string | URL, init?: RequestInit) => {
   const method = String(url).split('/').pop() ?? '';
   const payload = init?.body ? JSON.parse(String(init.body)) : {};
   calls.push({ method, payload });
+  if (failingMethods.has(method)) {
+    return new Response(JSON.stringify({
+      ok: false, error_code: 400, description: 'Bad Request: wrong file identifier/HTTP URL specified',
+    }));
+  }
   const returnsTrue = ['answerCallbackQuery', 'setMyCommands', 'deleteMyCommands', 'setChatMenuButton'].includes(method);
   return new Response(JSON.stringify({
     ok: true,
